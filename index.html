@@ -389,6 +389,8 @@ async function doLogin(){
   try{
     const uHash=await sha256(uRaw.toLowerCase()),pwHash=await sha256(uHash+':'+pass),accts=getAccounts();
     currentPwHash=pwHash; // used as cloud sync path
+    // Also persist to localStorage so session restores can find it
+    localStorage.setItem('FM_PH_'+currentDataKey,pwHash);
     let isNewAccount=false;
     if(accts[uHash]){
       if(accts[uHash].pwHash!==pwHash){
@@ -1108,6 +1110,7 @@ async function cloudPush(){
 }
 
 function showSyncModal(){
+  const fbOk=FIREBASE_URL&&!FIREBASE_URL.includes('YOUR-PROJECT');
   const configured=!!cloudUrl();
   let h='<div id="sync-modal" onclick="if(event.target.id===\'sync-modal\')closeSyncModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px">';
   h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:420px;max-width:100%;max-height:90vh;overflow-y:auto">';
@@ -1116,9 +1119,11 @@ function showSyncModal(){
     h+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#166534;line-height:1.8">&#x2713; Auto-sync active — data saves to cloud on every change. Login with the same username &amp; password on any device to access your data.</div>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="btn btn-ghost btn-sm" onclick="doSyncPull()">&#x2B07; Pull from Cloud</button><button class="btn btn-ghost btn-sm" onclick="doSyncPush()">&#x2B06; Push to Cloud</button></div>';
     h+='<div style="font-size:11px;color:#aaa;text-align:center">Pull overwrites this device &nbsp;&middot;&nbsp; Push overwrites cloud</div>';
+  } else if(!fbOk){
+    h+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#854d0e;line-height:1.8">&#x26A0;&#xFE0F; Firebase URL not set in the HTML file.</div>';
+    h+='<div style="font-size:12px;color:#888;line-height:2">Setup (free, ~2 min):<br>1. firebase.google.com &rarr; Add project<br>2. Realtime Database &rarr; Create &rarr; Test mode<br>3. Copy database URL &rarr; paste into FIREBASE_URL in the HTML file</div>';
   } else {
-    h+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#854d0e;line-height:1.8">&#x26A0;&#xFE0F; Firebase not configured.<br>Open the HTML file and set <code>FIREBASE_URL</code> to your Firebase Realtime Database URL.</div>';
-    h+='<div style="font-size:12px;color:#888;line-height:2">Setup (free, ~2 min):<br>1. firebase.google.com &rarr; Add project<br>2. Realtime Database &rarr; Create &rarr; Test mode<br>3. Copy database URL &rarr; paste into HTML file</div>';
+    h+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#c2410c;line-height:1.8">&#x26A0;&#xFE0F; Session expired — please <strong>sign out and sign back in</strong> to re-activate sync.</div>';
   }
   h+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',h);
@@ -1147,7 +1152,7 @@ async function startApp(){
   if(!s)return;
   try{
     const d=JSON.parse(atob(s));if(!d.dk)return;
-    currentDataKey=d.dk;currentUsername=d.un||'user';currentPwHash=d.ph||'';SK=currentDataKey;
+    currentDataKey=d.dk;currentUsername=d.un||'user';currentPwHash=d.ph||localStorage.getItem('FM_PH_'+d.dk)||'';SK=currentDataKey;
     sessionStorage.setItem('fm_sess',s);
     DB=initDB();
     document.getElementById('user-name-display').textContent=currentUsername;
