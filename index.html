@@ -494,8 +494,8 @@ function skipSetup(){
 
 async function restoreFromSetup(){
   const statusEl=document.getElementById('setup-sync-status');
-  if(!cloudUrl()){
-    if(statusEl){statusEl.textContent='Cloud sync not configured (Firebase URL not set).';statusEl.style.color='#dc2626';}return;
+  if(!_ghConfigured()){
+    if(statusEl){statusEl.textContent='Cloud sync not configured — set GH_REPO and GH_TOKEN in the HTML file.';statusEl.style.color='#dc2626';}return;
   }
   if(statusEl){statusEl.textContent='Pulling from cloud…';statusEl.style.color='#F7931A';}
   const ok=await cloudPull();
@@ -613,6 +613,7 @@ function save(){
     syncBTCToAssets();
     localStorage.setItem(SK,JSON.stringify(DB));
     const el=document.getElementById('last-saved');if(el)el.textContent=new Date().toLocaleTimeString();
+    // cloudPush has its own 5s debounce internally — safe to call on every save
     cloudPush();
   },600);
 }
@@ -625,7 +626,7 @@ function save(){
 async function fetchBTCPrice(){
   const badge=document.getElementById('live-badge');if(badge)badge.style.background='#fef9c3';
   try{
-    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb',{signal:AbortSignal.timeout(6000)});
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb',(()=>{const c=new AbortController();setTimeout(()=>c.abort(),6000);return{signal:c.signal};})());
     const d=await r.json();
     if(d.bitcoin?.thb){
       btcPrice=d.bitcoin.thb;
@@ -1059,84 +1060,180 @@ function exportMonthlyReport(){const month=document.getElementById('exp-month').
 function exportReadableArchive(){const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();let body='<h1>Finance Archive</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Read-only</p>';const latest=DB.portfolio.at(-1);if(latest){body+='<h2>Latest Portfolio ('+latest.date+')</h2><div class="summary">';[['Bitcoin',latest.bitcoin,'#F7931A'],['Emergency',latest.emergency,'#3b82f6'],['Gold',latest.gold,'#ca8a04'],['RMF',latest.rmf,'#6b7280'],['RE Fund',latest.realEstate,'#8b5cf6']].forEach(function(r){body+='<div class="s-card"><div class="s-label">'+r[0]+'</div><div class="s-val" style="color:'+r[2]+'">฿'+Math.round(r[1]||0).toLocaleString()+'</div></div>';});body+='</div>';}body+='<h2>Bitcoin Holdings</h2><div class="summary"><div class="s-card"><div class="s-label">Total Sat</div><div class="s-val" style="color:#F7931A">'+totalSat().toLocaleString()+' sat</div></div><div class="s-card"><div class="s-label">BTC</div><div class="s-val">'+(totalSat()/1e8).toFixed(8)+'</div></div><div class="s-card"><div class="s-label">Invested</div><div class="s-val">฿'+Math.round(totalBTCInvested()).toLocaleString()+'</div></div></div>';months.forEach(function(m){const txs=txM(m),incs=incM(m);if(txs.length===0&&incs.length===0)return;body+='<h2>'+monthLabel(m)+'</h2><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(incTotalM(m)).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(spentM(m)).toLocaleString()+'</div></div></div>';if(incs.length>0){body+='<table><thead><tr><th>Date</th><th>Source</th><th>Amount</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(txs.length>0){body+='<table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});body+='</tbody></table>';}const nt=DB.notes[m];if(nt&&nt.good)body+='<p><strong>What went well:</strong><br>'+nt.good.replace(/\n/g,'<br>')+'</p>';if(nt&&nt.improve)body+='<p><strong>To improve:</strong><br>'+nt.improve.replace(/\n/g,'<br>')+'</p>';});const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Archive</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_archive_'+new Date().toISOString().slice(0,10)+'.html';a.click();closeExportModal();}
 
 // ─────────────────────────────────────────────────────
-// CLOUD SYNC (Firebase Realtime Database)
+// CLOUD SYNC — GitHub API (Contents API)
 // ─────────────────────────────────────────────────────
-// ⚠️  ONE-TIME SETUP (developer does this once):
-//   1. firebase.google.com → Add project → Realtime Database
-//   2. Create database → Start in test mode
-//   3. Paste your database URL into FIREBASE_URL below
-//   4. Security rules (Realtime Database → Rules tab):
-//      { "rules": { "u": { "$p": { ".read":true,".write":true } } } }
-//
-// After that: users just login — sync is automatic.
-// Data path = pwHash (sha256 of username+password),
-// so only the correct login can reach its own data.
+// ONE-TIME SETUP (do this once, never again):
+//   1. Create a PRIVATE GitHub repo for data storage
+//      e.g. github.com/new → name it "fm-data" → Private
+//   2. Create a token: github.com → Settings →
+//      Developer settings → Fine-grained tokens → New token
+//      → Repository access: only "fm-data"
+//      → Permissions: Contents → Read and Write
+//      → Copy the token
+//   3. Paste repo and token into the two lines below
 // ─────────────────────────────────────────────────────
-// ⚠️  PASTE YOUR FIREBASE URL HERE:
-const FIREBASE_URL = 'https://fianance-fe078-default-rtdb.asia-southeast1.firebasedatabase.app';
+const GH_REPO  = 'Bookz-op/fm-data'; // private data repo
+const GH_TOKEN = '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';
 
-function updateSyncBadge(state){
-  const btn=document.getElementById('sync-btn');if(!btn)return;
-  const map={ok:{bg:'#dcfce7',color:'#166534',title:'Synced ✓'},err:{bg:'#fee2e2',color:'#dc2626',title:'Sync error — click to check'},busy:{bg:'#fef9c3',color:'#854d0e',title:'Syncing…'},off:{bg:'transparent',color:'#bbb',title:'Cloud sync — Firebase URL not configured'}};
-  const st=map[state]||map.off;btn.style.background=st.bg;btn.style.color=st.color;btn.title=st.title;
+let _lastPushAt=0;
+let _fileSHAs={}; // cache SHA per user so we don't need extra GET on every push
+
+function _ghConfigured(){
+  return GH_REPO&&GH_TOKEN&&!GH_REPO.includes('YOUR_')&&!GH_TOKEN.includes('YOUR_')&&!!currentPwHash;
+}
+function _ghFileUrl(){
+  if(!_ghConfigured())return null;
+  return 'https://api.github.com/repos/'+GH_REPO+'/contents/data/'+currentPwHash+'.json';
+}
+function _ghHeaders(){
+  return{'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
 }
 
-function cloudUrl(){
-  if(!FIREBASE_URL||FIREBASE_URL.includes('YOUR-PROJECT')||!currentPwHash)return null;
-  return FIREBASE_URL.replace(/\/+$/,'')+'/u/'+currentPwHash+'.json';
+function updateSyncBadge(state,detail){
+  const btn=document.getElementById('sync-btn');if(!btn)return;
+  const map={
+    ok:{bg:'#dcfce7',color:'#166534',title:'Synced ✓'},
+    err:{bg:'#fee2e2',color:'#dc2626',title:'Sync error — tap for details'},
+    busy:{bg:'#fef9c3',color:'#854d0e',title:'Syncing…'},
+    off:{bg:'transparent',color:'#bbb',title:'Cloud sync not configured'}
+  };
+  const st=map[state]||map.off;
+  btn.style.background=st.bg;btn.style.color=st.color;
+  btn.dataset.syncState=state;btn.dataset.syncDetail=detail||'';
 }
 
 async function cloudPull(){
-  const url=cloudUrl();if(!url){updateSyncBadge('off');return false;}
+  const url=_ghFileUrl();
+  if(!url){updateSyncBadge('off');return false;}
   updateSyncBadge('busy');
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),10000);
   try{
-    const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
-    if(!r.ok){updateSyncBadge('err');return false;}
-    const data=await r.json();
-    if(!data||typeof data!=='object'||Array.isArray(data)){updateSyncBadge('ok');return false;}
+    const r=await fetch(url,{headers:_ghHeaders(),signal:ctrl.signal});
+    clearTimeout(t);
+    if(r.status===404){
+      // File doesn't exist yet — first time on this account
+      updateSyncBadge('ok','No cloud data yet.');return false;
+    }
+    if(!r.ok){
+      const msg=r.status===401?'Bad token — check GH_TOKEN in HTML'
+        :r.status===403?'Forbidden — check token permissions (Contents: Read and Write)'
+        :'HTTP '+r.status;
+      updateSyncBadge('err',msg);return false;
+    }
+    const file=await r.json();
+    _fileSHAs[currentPwHash]=file.sha; // cache SHA for next push
+    const data=JSON.parse(atob(file.content.replace(/\n/g,'')));
+    if(!data||typeof data!=='object'||Array.isArray(data)){
+      updateSyncBadge('ok','Cloud file empty.');return false;
+    }
     const hasRemote=(data.transactions?.length>0)||(data.btcEntries?.length>0)||(data.assets?.length>0)||(data.income?.length>0);
     const hasLocal=DB.transactions.length>0||DB.btcEntries.length>0||(DB.assets?.length>0)||DB.income.length>0;
-    if(!hasRemote&&hasLocal){updateSyncBadge('ok');return false;}
+    if(!hasRemote&&hasLocal){updateSyncBadge('ok','Cloud empty — keeping local.');return false;}
     localStorage.setItem(SK,JSON.stringify(data));DB=initDB();
-    updateSyncBadge('ok');return true;
-  }catch(e){updateSyncBadge('err');return false;}
+    updateSyncBadge('ok','Pulled '+new Date().toLocaleTimeString());return true;
+  }catch(e){
+    clearTimeout(t);
+    updateSyncBadge('err',e.name==='AbortError'?'Timed out':'Network error: '+e.message);return false;
+  }
 }
 
 async function cloudPush(){
-  const url=cloudUrl();if(!url)return;
+  const url=_ghFileUrl();if(!url)return;
+  const now=Date.now();if(now-_lastPushAt<5000)return; // 5s debounce
+  _lastPushAt=now;
+  updateSyncBadge('busy');
+  // Get current SHA if we don't have it cached
+  if(!_fileSHAs[currentPwHash]){
+    const ctrl0=new AbortController();const t0=setTimeout(()=>ctrl0.abort(),8000);
+    try{
+      const r0=await fetch(url,{headers:_ghHeaders(),signal:ctrl0.signal});
+      clearTimeout(t0);
+      if(r0.ok){const f=await r0.json();_fileSHAs[currentPwHash]=f.sha;}
+      else if(r0.status!==404){updateSyncBadge('err','HTTP '+r0.status+' getting file SHA');return;}
+    }catch(e){clearTimeout(t0);}
+  }
+  const body={message:'FM data '+new Date().toISOString().slice(0,16),content:btoa(unescape(encodeURIComponent(JSON.stringify(DB))))};
+  if(_fileSHAs[currentPwHash])body.sha=_fileSHAs[currentPwHash];
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),10000);
   try{
-    const r=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB),signal:AbortSignal.timeout(8000)});
-    if(r.ok)updateSyncBadge('ok');else updateSyncBadge('err');
-  }catch(e){updateSyncBadge('err');}
+    const r=await fetch(url,{method:'PUT',headers:_ghHeaders(),body:JSON.stringify(body),signal:ctrl.signal});
+    clearTimeout(t);
+    if(r.ok){
+      const d=await r.json();
+      _fileSHAs[currentPwHash]=d.content?.sha||_fileSHAs[currentPwHash]; // update SHA cache
+      updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());
+    } else {
+      const err=await r.json().catch(()=>({}));
+      updateSyncBadge('err','Push failed '+r.status+': '+(err.message||'').slice(0,80));
+    }
+  }catch(e){
+    clearTimeout(t);
+    updateSyncBadge('err',e.name==='AbortError'?'Push timed out':'Push error: '+e.message);
+  }
 }
 
 function showSyncModal(){
-  const configured=!!cloudUrl();
+  const btn=document.getElementById('sync-btn');
+  const state=btn?.dataset.syncState||'off';
+  const detail=btn?.dataset.syncDetail||'';
+  const configured=_ghConfigured();
   let h='<div id="sync-modal" onclick="if(event.target.id===\'sync-modal\')closeSyncModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px">';
-  h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:420px;max-width:100%;max-height:90vh;overflow-y:auto">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:700">&#x2601; Cloud Sync</div><button onclick="closeSyncModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button></div>';
+  h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:700">☁ Cloud Sync (GitHub)</div><button onclick="closeSyncModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
   if(configured){
-    h+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#166534;line-height:1.8">&#x2713; Auto-sync active — data saves to cloud on every change. Login with the same username &amp; password on any device to access your data.</div>';
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="btn btn-ghost btn-sm" onclick="doSyncPull()">&#x2B07; Pull from Cloud</button><button class="btn btn-ghost btn-sm" onclick="doSyncPush()">&#x2B06; Push to Cloud</button></div>';
-    h+='<div style="font-size:11px;color:#aaa;text-align:center">Pull overwrites this device &nbsp;&middot;&nbsp; Push overwrites cloud</div>';
+    const stColors={ok:'#f0fdf4',err:'#fef2f2',busy:'#fefce8',off:'#f4f3ef'};
+    const stText={ok:'✓ Synced',err:'✗ Error',busy:'⟳ Syncing…',off:'○ Offline'};
+    h+='<div style="background:'+(stColors[state]||stColors.off)+';border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-weight:600">'+(stText[state]||'○ Unknown')+'</div>';
+    if(detail)h+='<div style="background:#f4f3ef;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#555;word-break:break-word">'+detail+'</div>';
+    h+='<div style="font-size:12px;color:#aaa;margin-bottom:12px">Repo: <code>'+GH_REPO+'</code> · File: <code>data/'+currentPwHash.slice(0,12)+'….json</code></div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
+    h+='<button class="btn btn-primary btn-sm" onclick="doSyncTest()">Test Now</button>';
+    h+='<button class="btn btn-ghost btn-sm" onclick="doSyncPull()">⬇ Pull</button>';
+    h+='<button class="btn btn-ghost btn-sm" onclick="doSyncPush()">⬆ Push</button>';
+    h+='</div>';
+    h+='<div style="font-size:11px;color:#aaa;text-align:center">Pull overwrites this device · Push overwrites cloud</div>';
   } else {
-    h+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#854d0e;line-height:1.8">&#x26A0;&#xFE0F; Firebase not configured.<br>Open the HTML file and set <code>FIREBASE_URL</code> to your Firebase Realtime Database URL.</div>';
-    h+='<div style="font-size:12px;color:#888;line-height:2">Setup (free, ~2 min):<br>1. firebase.google.com &rarr; Add project<br>2. Realtime Database &rarr; Create &rarr; Test mode<br>3. Copy database URL &rarr; paste into HTML file</div>';
+    h+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#854d0e;line-height:1.9">';
+    h+='<strong>Setup needed (one time):</strong><br>';
+    h+='1. Create a private GitHub repo (e.g. <code>fm-data</code>)<br>';
+    h+='2. Create a Fine-grained token → Contents: Read &amp; Write on that repo<br>';
+    h+='3. Open the HTML file, set <code>GH_REPO</code> and <code>GH_TOKEN</code> near the top of the script<br>';
+    h+='4. Re-upload to GitHub Pages';
+    h+='</div>';
+    if(!currentPwHash)h+='<div style="font-size:12px;color:#dc2626">Log out and log back in to activate sync.</div>';
   }
   h+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',h);
 }
 
 function closeSyncModal(){const m=document.getElementById('sync-modal');if(m)m.remove();}
-async function doSyncPull(){closeSyncModal();const ok=await cloudPull();if(ok){toast('Pulled ✓','ok');navigate(currentPage);}else toast('No cloud data or connection failed','err');}
-async function doSyncPush(){closeSyncModal();await cloudPush();toast('Pushed to cloud ✓','ok');}
+
+async function doSyncTest(){
+  closeSyncModal();_lastPushAt=0;_fileSHAs={};
+  await cloudPush();
+  await new Promise(r=>setTimeout(r,1000));
+  const ok=await cloudPull();
+  showSyncModal();
+  toast(ok?'✓ Sync working':'✗ Sync failed — see details in ☁',ok?'ok':'err');
+}
+async function doSyncPull(){
+  closeSyncModal();
+  const ok=await cloudPull();
+  if(ok){toast('Pulled ✓','ok');navigate(currentPage);}
+  else toast('Pull failed — see ☁ for details','err');
+}
+async function doSyncPush(){
+  closeSyncModal();_lastPushAt=0;
+  await cloudPush();
+  toast('Pushed ✓','ok');
+}
 
 // ─────────────────────────────────────────────────────
 // APP STARTUP
 // ─────────────────────────────────────────────────────
 async function startApp(){
   startPriceRefresh();navigate('dashboard');
-  if(cloudUrl()){
+  if(_ghConfigured()){
     updateSyncBadge('busy');
     const pulled=await cloudPull();
     if(pulled)navigate(currentPage||'dashboard');
