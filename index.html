@@ -1142,7 +1142,7 @@ async function cloudPush(){
   const now=Date.now();if(now-_lastPushAt<5000)return; // 5s debounce
   _lastPushAt=now;
   updateSyncBadge('busy');
-  // Get current SHA if we don't have it cached
+  // Get current SHA if we don't have it cached 
   if(!_fileSHAs[currentPwHash]){
     const ctrl0=new AbortController();const t0=setTimeout(()=>ctrl0.abort(),8000);
     try{
