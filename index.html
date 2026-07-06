@@ -426,11 +426,22 @@ async function doLogin(){
   }catch(e){err.textContent='Login error. Try again.';btn.textContent='Sign In / Create Account';btn.disabled=false;}
 }
 function doLogout(){
+  // Stop all background tasks first — prevents crashes on white screen
+  if(priceInterval){clearInterval(priceInterval);priceInterval=null;}
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
   sessionStorage.removeItem('fm_sess');localStorage.removeItem('fm_remember');
   if(currentDataKey)localStorage.removeItem('FM_PH_'+currentDataKey);
   currentDataKey=null;currentUsername='';currentPwHash='';
-  document.getElementById('app').style.display='none';document.getElementById('setup-screen').style.display='none';document.getElementById('login-screen').style.display='flex';
-  document.getElementById('l-user').value='';document.getElementById('l-pass').value='';document.getElementById('login-err').textContent='';document.getElementById('login-hint').textContent='';
+  // Reset DB to safe empty state so no residual async render crashes
+  DB=initDB();SK='fm_v3';
+  document.getElementById('app').style.display='none';
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('l-user').value='';
+  document.getElementById('l-pass').value='';
+  document.getElementById('login-err').textContent='';
+  const hint=document.getElementById('login-hint');if(hint)hint.textContent='';
+  updateSyncBadge('off');
 }
 
 // ─────────────────────────────────────────────────────
@@ -494,8 +505,8 @@ function skipSetup(){
 
 async function restoreFromSetup(){
   const statusEl=document.getElementById('setup-sync-status');
-  if(!_ghConfigured()){
-    if(statusEl){statusEl.textContent='Cloud sync not configured — set GH_REPO and GH_TOKEN in the HTML file.';statusEl.style.color='#dc2626';}return;
+  if(!_fbConfigured()){
+    if(statusEl){statusEl.textContent='Cloud sync not active — log out and log back in first.';statusEl.style.color='#dc2626';}return;
   }
   if(statusEl){statusEl.textContent='Pulling from cloud…';statusEl.style.color='#F7931A';}
   const ok=await cloudPull();
@@ -544,18 +555,35 @@ const INV_COLORS=['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#
 // ─────────────────────────────────────────────────────
 // DATABASE / LOCALSTORAGE
 // ─────────────────────────────────────────────────────
+function _arr(v,def){return Array.isArray(v)?v:(def||[]);}
+function _obj(v,def){return(v&&typeof v==='object'&&!Array.isArray(v))?v:(def||{});}
+
 function initDB(){
   const s=localStorage.getItem(SK);
   if(s){try{
     const d=JSON.parse(s);
-    if(!d.assets)d.assets=[];if(!d.goalHits)d.goalHits={};if(!d.chainHits)d.chainHits={};if(!d.customInvestments)d.customInvestments=[];
-    if(!d.emergencySettings)d.emergencySettings={expense:15000,months:6};if(d.dcaAmount===undefined||d.dcaAmount===null)d.dcaAmount=108;
-    if(!d.tax)d.tax={rmfManual:0,lifeIns:0,healthIns:0};if(!d.budgetByMonth)d.budgetByMonth={};if(!d.budgetPresets)d.budgetPresets={};if(!d.goals)d.goals=[];
-    if(!d.incomeSources)d.incomeSources=['Salary','Side / Amway','Freelance','Bitcoin gains','Other'];
-    (d.portfolio||[]).forEach(p=>{if(p.realEstate===undefined)p.realEstate=0;});
-    if(!d.creditCards)d.creditCards=[];
-    (d.customInvestments||[]).forEach(iv=>{if(!iv.link)iv.link='';if(iv.dcaAmount===undefined)iv.dcaAmount=0;if(iv.pricePerUnit===undefined)iv.pricePerUnit=0;});
+    // Firebase converts empty arrays to null — sanitize every field
+    d.transactions=_arr(d.transactions);
+    d.income=_arr(d.income);
+    d.btcEntries=_arr(d.btcEntries);
+    d.portfolio=_arr(d.portfolio);
+    d.assets=_arr(d.assets);
+    d.goals=_arr(d.goals,DEFAULT_GOALS);
+    d.customInvestments=_arr(d.customInvestments);
+    d.creditCards=_arr(d.creditCards);
+    d.incomeSources=_arr(d.incomeSources,['Salary','Side / Amway','Freelance','Bitcoin gains','Other']);
+    d.budget=_arr(d.budget,DEFAULT_BUDGET);
+    d.goalHits=_obj(d.goalHits);
+    d.chainHits=_obj(d.chainHits);
+    d.budgetByMonth=_obj(d.budgetByMonth);
+    d.budgetPresets=_obj(d.budgetPresets);
+    d.notes=_obj(d.notes);
+    d.tax=_obj(d.tax,{rmfManual:0,lifeIns:0,healthIns:0});
+    d.emergencySettings=_obj(d.emergencySettings,{expense:15000,months:6});
+    if(d.dcaAmount==null)d.dcaAmount=108;
     if(d.fireSettings===undefined)d.fireSettings=null;
+    d.portfolio.forEach(p=>{if(p.realEstate===undefined)p.realEstate=0;});
+    d.customInvestments.forEach(iv=>{if(!iv.link)iv.link='';if(iv.dcaAmount==null)iv.dcaAmount=0;if(iv.pricePerUnit==null)iv.pricePerUnit=0;if(!Array.isArray(iv.entries))iv.entries=[];});
     return d;
   }catch{}}
   return{transactions:[],income:[],budget:DEFAULT_BUDGET,budgetByMonth:{},budgetPresets:{},notes:{},creditCards:[],incomeSources:['Salary','Side / Amway','Freelance','Bitcoin gains','Other'],btcEntries:[],customInvestments:[],portfolio:[],assets:[],goals:DEFAULT_GOALS,goalHits:{},chainHits:{},tax:{rmfManual:0,lifeIns:0,healthIns:0},emergencySettings:{expense:15000,months:6},dcaAmount:108,fireSettings:null};
@@ -574,14 +602,14 @@ function fmtFull(n){if(hideAmounts)return H;return'฿'+Math.round(parseFloat(n)
 function fmtSat(s){if(hideAmounts)return'••• sat';s=parseInt(s)||0;if(s>=1e8)return(s/1e8).toFixed(8)+' BTC';if(s>=1e6)return(s/1e6).toFixed(4)+'M sat';if(s>=1000)return(s/1000).toFixed(2)+'k sat';return s.toLocaleString()+' sat';}
 function fmtPrice(n){if(hideAmounts)return'฿ •••';return'฿'+Math.round(parseFloat(n)||0).toLocaleString();}
 function monthLabel(m){if(!m)return'';const[y,mo]=m.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+' '+y;}
-function txM(m){return DB.transactions.filter(t=>t.date.startsWith(m));}
-function incM(m){return DB.income.filter(i=>i.month===m);}
+function txM(m){return(DB.transactions||[]).filter(t=>t.date.startsWith(m));}
+function incM(m){return(DB.income||[]).filter(i=>i.month===m);}
 function spentM(m){return txM(m).filter(t=>t.cat!=='ออมเงิน, ลงทุน').reduce((s,t)=>s+(t.amt||0),0);}
 function investM(m){return txM(m).filter(t=>t.cat==='ออมเงิน, ลงทุน').reduce((s,t)=>s+(t.amt||0),0);}
 function incTotalM(m){return incM(m).reduce((s,i)=>s+(i.amt||0),0);}
-function yearIncome(y){return DB.income.filter(i=>i.month.startsWith(y)).reduce((s,i)=>s+(i.amt||0),0);}
-function totalSat(){return DB.btcEntries.reduce((s,e)=>s+(parseInt(e.sat)||0),0);}
-function totalBTCInvested(){return DB.btcEntries.reduce((s,e)=>s+(parseFloat(e.thb)||0),0);}
+function yearIncome(y){return(DB.income||[]).filter(i=>i.month.startsWith(y)).reduce((s,i)=>s+(i.amt||0),0);}
+function totalSat(){return(DB.btcEntries||[]).reduce((s,e)=>s+(parseInt(e.sat)||0),0);}
+function totalBTCInvested(){return(DB.btcEntries||[]).reduce((s,e)=>s+(parseFloat(e.thb)||0),0);}
 function btcValueTHB(){return btcPrice>0?(totalSat()/1e8)*btcPrice:0;}
 function assetSum(cat){return(DB.assets||[]).filter(a=>a.type==='asset'&&a.category===cat).reduce((s,a)=>s+(parseFloat(a.value)||0),0);}
 function totalAssets(){return(DB.assets||[]).filter(a=>a.type==='asset').reduce((s,a)=>s+(parseFloat(a.value)||0),0);}
@@ -626,7 +654,7 @@ function save(){
 async function fetchBTCPrice(){
   const badge=document.getElementById('live-badge');if(badge)badge.style.background='#fef9c3';
   try{
-    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb',(()=>{const c=new AbortController();setTimeout(()=>c.abort(),6000);return{signal:c.signal};})());
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb',{});
     const d=await r.json();
     if(d.bitcoin?.thb){
       btcPrice=d.bitcoin.thb;
@@ -1060,132 +1088,116 @@ function exportMonthlyReport(){const month=document.getElementById('exp-month').
 function exportReadableArchive(){const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();let body='<h1>Finance Archive</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Read-only</p>';const latest=DB.portfolio.at(-1);if(latest){body+='<h2>Latest Portfolio ('+latest.date+')</h2><div class="summary">';[['Bitcoin',latest.bitcoin,'#F7931A'],['Emergency',latest.emergency,'#3b82f6'],['Gold',latest.gold,'#ca8a04'],['RMF',latest.rmf,'#6b7280'],['RE Fund',latest.realEstate,'#8b5cf6']].forEach(function(r){body+='<div class="s-card"><div class="s-label">'+r[0]+'</div><div class="s-val" style="color:'+r[2]+'">฿'+Math.round(r[1]||0).toLocaleString()+'</div></div>';});body+='</div>';}body+='<h2>Bitcoin Holdings</h2><div class="summary"><div class="s-card"><div class="s-label">Total Sat</div><div class="s-val" style="color:#F7931A">'+totalSat().toLocaleString()+' sat</div></div><div class="s-card"><div class="s-label">BTC</div><div class="s-val">'+(totalSat()/1e8).toFixed(8)+'</div></div><div class="s-card"><div class="s-label">Invested</div><div class="s-val">฿'+Math.round(totalBTCInvested()).toLocaleString()+'</div></div></div>';months.forEach(function(m){const txs=txM(m),incs=incM(m);if(txs.length===0&&incs.length===0)return;body+='<h2>'+monthLabel(m)+'</h2><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(incTotalM(m)).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(spentM(m)).toLocaleString()+'</div></div></div>';if(incs.length>0){body+='<table><thead><tr><th>Date</th><th>Source</th><th>Amount</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(txs.length>0){body+='<table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});body+='</tbody></table>';}const nt=DB.notes[m];if(nt&&nt.good)body+='<p><strong>What went well:</strong><br>'+nt.good.replace(/\n/g,'<br>')+'</p>';if(nt&&nt.improve)body+='<p><strong>To improve:</strong><br>'+nt.improve.replace(/\n/g,'<br>')+'</p>';});const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Archive</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_archive_'+new Date().toISOString().slice(0,10)+'.html';a.click();closeExportModal();}
 
 // ─────────────────────────────────────────────────────
-// CLOUD SYNC — GitHub API (Contents API)
+// CLOUD SYNC — Firebase Realtime Database
+// Data path = /u/<pwHash> — isolated per account.
 // ─────────────────────────────────────────────────────
-// ONE-TIME SETUP (do this once, never again):
-//   1. Create a PRIVATE GitHub repo for data storage
-//      e.g. github.com/new → name it "fm-data" → Private
-//   2. Create a token: github.com → Settings →
-//      Developer settings → Fine-grained tokens → New token
-//      → Repository access: only "fm-data"
-//      → Permissions: Contents → Read and Write
-//      → Copy the token
-//   3. Paste repo and token into the two lines below
-// ─────────────────────────────────────────────────────
-const GH_REPO  = 'Bookz-op/fm-data'; // private data repo
-const GH_TOKEN = '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';
+// ⚠️ Set your Firebase URL here:
+const FIREBASE_URL='https://fianance-fe078-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+// Works in all browsers including WebKit/Safari — no AbortSignal needed
+function _fetchTimeout(url, opts, ms){
+  return Promise.race([
+    fetch(url, opts),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),ms))
+  ]);
+}
+
+// Required Firebase rules (Realtime Database → Rules tab → Publish):
+// {
+//   "rules": {
+//     "u": {
+//       "$uid": { ".read": "true", ".write": "true" }
+//     }
+//   }
+// }
 
 let _lastPushAt=0;
-let _fileSHAs={}; // cache SHA per user so we don't need extra GET on every push
 
-function _ghConfigured(){
-  return GH_REPO&&GH_TOKEN&&!GH_REPO.includes('YOUR_')&&!GH_TOKEN.includes('YOUR_')&&!!currentPwHash;
-}
-function _ghFileUrl(){
-  if(!_ghConfigured())return null;
-  return 'https://api.github.com/repos/'+GH_REPO+'/contents/data/'+currentPwHash+'.json';
-}
-function _ghHeaders(){
-  return{'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
-}
+function _fbConfigured(){return!!(FIREBASE_URL&&currentPwHash);}
+function _fbUrl(){if(!_fbConfigured())return null;return FIREBASE_URL.replace(/\/+$/,'')+'/u/'+currentPwHash+'.json';}
 
 function updateSyncBadge(state,detail){
   const btn=document.getElementById('sync-btn');if(!btn)return;
-  const map={
-    ok:{bg:'#dcfce7',color:'#166534',title:'Synced ✓'},
-    err:{bg:'#fee2e2',color:'#dc2626',title:'Sync error — tap for details'},
-    busy:{bg:'#fef9c3',color:'#854d0e',title:'Syncing…'},
-    off:{bg:'transparent',color:'#bbb',title:'Cloud sync not configured'}
-  };
+  const map={ok:{bg:'#dcfce7',color:'#166534'},err:{bg:'#fee2e2',color:'#dc2626'},busy:{bg:'#fef9c3',color:'#854d0e'},off:{bg:'transparent',color:'#bbb'}};
   const st=map[state]||map.off;
   btn.style.background=st.bg;btn.style.color=st.color;
   btn.dataset.syncState=state;btn.dataset.syncDetail=detail||'';
 }
 
 async function cloudPull(){
-  const url=_ghFileUrl();
-  if(!url){updateSyncBadge('off');return false;}
+  const url=_fbUrl();if(!url){updateSyncBadge('off');return false;}
   updateSyncBadge('busy');
-  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),10000);
   try{
-    const r=await fetch(url,{headers:_ghHeaders(),signal:ctrl.signal});
-    clearTimeout(t);
-    if(r.status===404){
-      // File doesn't exist yet — first time on this account
-      updateSyncBadge('ok','No cloud data yet.');return false;
-    }
+    const r=await _fetchTimeout(url,{},8000);
     if(!r.ok){
-      const msg=r.status===401?'Bad token — check GH_TOKEN in HTML'
-        :r.status===403?'Forbidden — check token permissions (Contents: Read and Write)'
-        :'HTTP '+r.status;
-      updateSyncBadge('err',msg);return false;
+      const body=await r.text().catch(()=>'');
+      const is403=r.status===401||r.status===403;
+      updateSyncBadge('err',is403?'Permission denied ('+r.status+') — publish Firebase rules (tap ☁ for help)':'HTTP '+r.status+': '+body.slice(0,100));
+      return false;
     }
-    const file=await r.json();
-    _fileSHAs[currentPwHash]=file.sha; // cache SHA for next push
-    const data=JSON.parse(atob(file.content.replace(/\n/g,'')));
-    if(!data||typeof data!=='object'||Array.isArray(data)){
-      updateSyncBadge('ok','Cloud file empty.');return false;
-    }
-    const hasRemote=(data.transactions?.length>0)||(data.btcEntries?.length>0)||(data.assets?.length>0)||(data.income?.length>0);
-    const hasLocal=DB.transactions.length>0||DB.btcEntries.length>0||(DB.assets?.length>0)||DB.income.length>0;
+    const data=await r.json();
+    if(!data||typeof data!=='object'||Array.isArray(data)){updateSyncBadge('ok','No cloud data yet.');return false;}
+    // Sanitize — Firebase converts empty arrays to null
+    const safe=_sanitize(data);
+    const hasRemote=safe.transactions.length>0||safe.btcEntries.length>0||safe.income.length>0||safe.assets.length>0;
+    const hasLocal=DB.transactions.length>0||DB.btcEntries.length>0||DB.income.length>0;
     if(!hasRemote&&hasLocal){updateSyncBadge('ok','Cloud empty — keeping local.');return false;}
-    localStorage.setItem(SK,JSON.stringify(data));DB=initDB();
+    localStorage.setItem(SK,JSON.stringify(safe));DB=initDB();
     updateSyncBadge('ok','Pulled '+new Date().toLocaleTimeString());return true;
   }catch(e){
-    clearTimeout(t);
-    updateSyncBadge('err',e.name==='AbortError'?'Timed out':'Network error: '+e.message);return false;
+    updateSyncBadge('err',e.message==='Timeout'?'Timed out':'Network: '+e.message);return false;
   }
 }
 
 async function cloudPush(){
-  const url=_ghFileUrl();if(!url)return;
-  const now=Date.now();if(now-_lastPushAt<5000)return; // 5s debounce
+  const url=_fbUrl();if(!url)return;
+  const now=Date.now();if(now-_lastPushAt<5000)return;
   _lastPushAt=now;
-  updateSyncBadge('busy');
-  // Get current SHA if we don't have it cached 
-  if(!_fileSHAs[currentPwHash]){
-    const ctrl0=new AbortController();const t0=setTimeout(()=>ctrl0.abort(),8000);
-    try{
-      const r0=await fetch(url,{headers:_ghHeaders(),signal:ctrl0.signal});
-      clearTimeout(t0);
-      if(r0.ok){const f=await r0.json();_fileSHAs[currentPwHash]=f.sha;}
-      else if(r0.status!==404){updateSyncBadge('err','HTTP '+r0.status+' getting file SHA');return;}
-    }catch(e){clearTimeout(t0);}
-  }
-  const body={message:'FM data '+new Date().toISOString().slice(0,16),content:btoa(unescape(encodeURIComponent(JSON.stringify(DB))))};
-  if(_fileSHAs[currentPwHash])body.sha=_fileSHAs[currentPwHash];
-  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),10000);
   try{
-    const r=await fetch(url,{method:'PUT',headers:_ghHeaders(),body:JSON.stringify(body),signal:ctrl.signal});
-    clearTimeout(t);
-    if(r.ok){
-      const d=await r.json();
-      _fileSHAs[currentPwHash]=d.content?.sha||_fileSHAs[currentPwHash]; // update SHA cache
-      updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());
-    } else {
-      const err=await r.json().catch(()=>({}));
-      updateSyncBadge('err','Push failed '+r.status+': '+(err.message||'').slice(0,80));
-    }
-  }catch(e){
-    clearTimeout(t);
-    updateSyncBadge('err',e.name==='AbortError'?'Push timed out':'Push error: '+e.message);
-  }
+    const r=await _fetchTimeout(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)},8000);
+    if(r.ok){updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());}
+    else{const b=await r.text().catch(()=>'');updateSyncBadge('err','Push '+r.status+': '+b.slice(0,80));}
+  }catch(e){updateSyncBadge('err',e.message==='Timeout'?'Push timed out':'Push: '+e.message);}
+}
+
+// Sanitize data pulled from Firebase (converts null arrays back to [])
+function _sanitize(d){
+  d.transactions=_arr(d.transactions);d.income=_arr(d.income);d.btcEntries=_arr(d.btcEntries);
+  d.portfolio=_arr(d.portfolio);d.assets=_arr(d.assets);d.goals=_arr(d.goals,DEFAULT_GOALS);
+  d.customInvestments=_arr(d.customInvestments);d.creditCards=_arr(d.creditCards);
+  d.incomeSources=_arr(d.incomeSources,['Salary','Side / Amway','Freelance','Bitcoin gains','Other']);
+  d.budget=_arr(d.budget,DEFAULT_BUDGET);
+  d.goalHits=_obj(d.goalHits);d.chainHits=_obj(d.chainHits);d.budgetByMonth=_obj(d.budgetByMonth);
+  d.budgetPresets=_obj(d.budgetPresets);d.notes=_obj(d.notes);
+  d.tax=_obj(d.tax,{rmfManual:0,lifeIns:0,healthIns:0});
+  d.emergencySettings=_obj(d.emergencySettings,{expense:15000,months:6});
+  if(d.dcaAmount==null)d.dcaAmount=108;if(d.fireSettings===undefined)d.fireSettings=null;
+  d.customInvestments.forEach(iv=>{if(!Array.isArray(iv.entries))iv.entries=[];});
+  return d;
 }
 
 function showSyncModal(){
   const btn=document.getElementById('sync-btn');
   const state=btn?.dataset.syncState||'off';
   const detail=btn?.dataset.syncDetail||'';
-  const configured=_ghConfigured();
+  const ok=state==='ok',err=state==='err';
   let h='<div id="sync-modal" onclick="if(event.target.id===\'sync-modal\')closeSyncModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px">';
   h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:700">☁ Cloud Sync (GitHub)</div><button onclick="closeSyncModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
-  if(configured){
-    const stColors={ok:'#f0fdf4',err:'#fef2f2',busy:'#fefce8',off:'#f4f3ef'};
-    const stText={ok:'✓ Synced',err:'✗ Error',busy:'⟳ Syncing…',off:'○ Offline'};
-    h+='<div style="background:'+(stColors[state]||stColors.off)+';border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-weight:600">'+(stText[state]||'○ Unknown')+'</div>';
-    if(detail)h+='<div style="background:#f4f3ef;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#555;word-break:break-word">'+detail+'</div>';
-    h+='<div style="font-size:12px;color:#aaa;margin-bottom:12px">Repo: <code>'+GH_REPO+'</code> · File: <code>data/'+currentPwHash.slice(0,12)+'….json</code></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:700">☁ Cloud Sync</div><button onclick="closeSyncModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
+  const stBg={ok:'#f0fdf4',err:'#fef2f2',busy:'#fefce8',off:'#f4f3ef'};
+  const stTx={ok:'✓ Synced',err:'✗ Error',busy:'⟳ Syncing…',off:'○ Not configured'};
+  h+='<div style="background:'+(stBg[state]||stBg.off)+';border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-weight:600">'+(stTx[state]||'○ Unknown')+'</div>';
+  if(detail)h+='<div style="background:#f4f3ef;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#555;word-break:break-word">'+detail+'</div>';
+  if(err&&detail.includes('Permission denied')){
+    h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#1d4ed8;line-height:1.9">';
+    h+='<strong>Fix Firebase rules:</strong><br>';
+    h+='1. <a href="https://console.firebase.google.com" target="_blank" style="color:#2563eb">console.firebase.google.com</a><br>';
+    h+='2. Your project → Realtime Database → <strong>Rules</strong><br>';
+    h+='3. Replace with:<br>';
+    h+='<code style="display:block;background:#1e1d1b;color:#F7931A;padding:8px;border-radius:6px;margin-top:6px;font-size:11px;white-space:pre">{\n  "rules": {\n    "u": {\n      "$uid": {\n        ".read": "true",\n        ".write": "true"\n      }\n    }\n  }\n}</code>';
+    h+='4. Click <strong>Publish</strong> → tap Test below</div>';
+  }
+  if(_fbConfigured()){
     h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
     h+='<button class="btn btn-primary btn-sm" onclick="doSyncTest()">Test Now</button>';
     h+='<button class="btn btn-ghost btn-sm" onclick="doSyncPull()">⬇ Pull</button>';
@@ -1193,14 +1205,7 @@ function showSyncModal(){
     h+='</div>';
     h+='<div style="font-size:11px;color:#aaa;text-align:center">Pull overwrites this device · Push overwrites cloud</div>';
   } else {
-    h+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#854d0e;line-height:1.9">';
-    h+='<strong>Setup needed (one time):</strong><br>';
-    h+='1. Create a private GitHub repo (e.g. <code>fm-data</code>)<br>';
-    h+='2. Create a Fine-grained token → Contents: Read &amp; Write on that repo<br>';
-    h+='3. Open the HTML file, set <code>GH_REPO</code> and <code>GH_TOKEN</code> near the top of the script<br>';
-    h+='4. Re-upload to GitHub Pages';
-    h+='</div>';
-    if(!currentPwHash)h+='<div style="font-size:12px;color:#dc2626">Log out and log back in to activate sync.</div>';
+    h+='<div style="font-size:12px;color:#dc2626">Log out and back in to activate sync.</div>';
   }
   h+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',h);
@@ -1209,31 +1214,22 @@ function showSyncModal(){
 function closeSyncModal(){const m=document.getElementById('sync-modal');if(m)m.remove();}
 
 async function doSyncTest(){
-  closeSyncModal();_lastPushAt=0;_fileSHAs={};
+  closeSyncModal();_lastPushAt=0;
   await cloudPush();
   await new Promise(r=>setTimeout(r,1000));
   const ok=await cloudPull();
   showSyncModal();
-  toast(ok?'✓ Sync working':'✗ Sync failed — see details in ☁',ok?'ok':'err');
+  toast(ok?'✓ Sync working':'✗ Sync failed — see ☁ for details',ok?'ok':'err');
 }
-async function doSyncPull(){
-  closeSyncModal();
-  const ok=await cloudPull();
-  if(ok){toast('Pulled ✓','ok');navigate(currentPage);}
-  else toast('Pull failed — see ☁ for details','err');
-}
-async function doSyncPush(){
-  closeSyncModal();_lastPushAt=0;
-  await cloudPush();
-  toast('Pushed ✓','ok');
-}
+async function doSyncPull(){closeSyncModal();const ok=await cloudPull();if(ok){toast('Pulled ✓','ok');navigate(currentPage);}else toast('Pull failed — see ☁','err');}
+async function doSyncPush(){closeSyncModal();_lastPushAt=0;await cloudPush();toast('Pushed ✓','ok');}
 
 // ─────────────────────────────────────────────────────
 // APP STARTUP
 // ─────────────────────────────────────────────────────
 async function startApp(){
   startPriceRefresh();navigate('dashboard');
-  if(_ghConfigured()){
+  if(_fbConfigured()){
     updateSyncBadge('busy');
     const pulled=await cloudPull();
     if(pulled)navigate(currentPage||'dashboard');
