@@ -938,25 +938,128 @@ function updateAssetVal(id,val){const a=DB.assets.find(x=>x.id===id);if(a){a.val
 // ─────────────────────────────────────────────────────
 // PAGE: TAX PLANNER
 // ─────────────────────────────────────────────────────
-function thaiTax(inc,rmf,li,hi){rmf=rmf||0;li=li||0;hi=hi||0;const ed=Math.min(inc*0.5,100000),pd=60000;const td=ed+pd+Math.min(rmf,inc*0.30,500000)+Math.min(li,100000)+Math.min(hi,25000);const tx=Math.max(0,inc-td);const brackets=[[150000,0],[150000,0.05],[200000,0.10],[250000,0.15],[250000,0.20],[1000000,0.25],[3000000,0.30],[Infinity,0.35]];let tax=0,rem=tx;for(var i=0;i<brackets.length;i++){if(rem<=0)break;tax+=Math.min(rem,brackets[i][0])*brackets[i][1];rem-=brackets[i][0];}return{taxable:tx,tax:Math.round(tax)};}
+// Thai Personal Income Tax 2024
+// Deductions: 50% of income (max 100k) + 60k personal + RMF + life ins + health ins
+function thaiTax(inc,rmf,li,hi){
+  if(!inc||inc<=0)return{taxable:0,tax:0,grossInc:0};
+  rmf=Math.min(rmf||0,inc*0.30,500000);
+  li=Math.min(li||0,100000);
+  hi=Math.min(hi||0,25000);
+  const expenseDeduct=Math.min(inc*0.50,100000); // 50% max 100k
+  const personalDeduct=60000;
+  const totalDeduct=expenseDeduct+personalDeduct+rmf+li+hi;
+  const taxable=Math.max(0,inc-totalDeduct);
+  const brackets=[[150000,0],[150000,0.05],[200000,0.10],[250000,0.15],[250000,0.20],[1000000,0.25],[3000000,0.30],[Infinity,0.35]];
+  let tax=0,rem=taxable;
+  for(let i=0;i<brackets.length;i++){if(rem<=0)break;tax+=Math.min(rem,brackets[i][0])*brackets[i][1];rem-=brackets[i][0];}
+  return{taxable,tax:Math.round(tax),grossInc:inc};
+}
+
 function renderTax(){
-  const year=activeMonth.slice(0,4),annualInc=yearIncome(year),monthsIn=parseInt(activeMonth.slice(5))||1,monthsLeft=Math.max(1,12-monthsIn+1);const t=DB.tax||{};const maxRmf=Math.min(annualInc*0.30,500000),rmfBought=parseFloat(t.rmfManual)||(parseFloat(DB.portfolio.at(-1)?.rmf)||0),rmfLeft=Math.max(0,maxRmf-rmfBought),recMonthly=rmfLeft>0?Math.round(rmfLeft/monthsLeft):0;
-  const before=thaiTax(annualInc,0,t.lifeIns,t.healthIns),after=thaiTax(annualInc,rmfBought,t.lifeIns,t.healthIns),withMax=thaiTax(annualInc,maxRmf,t.lifeIns,t.healthIns);const saving=before.tax-after.tax,extraSaving=before.tax-withMax.tax-saving;
+  const year=activeMonth.slice(0,4);
+  let annualInc=yearIncome(year);
+  const monthsIn=parseInt(activeMonth.slice(5))||1;
+  const monthsLeft=Math.max(1,12-monthsIn+1);
+  const t=DB.tax||{};
+
+  // Allow manual income override if nothing logged yet
+  const manualInc=parseFloat(t.manualIncome)||0;
+  if(annualInc<=0&&manualInc>0)annualInc=manualInc;
+  const annualised=annualInc>0?Math.round(annualInc/monthsIn*12):manualInc*12||0;
+
+  const maxRmf=Math.min((annualInc||annualised)*0.30,500000);
+  const rmfBought=parseFloat(t.rmfManual)||0;
+  const rmfLeft=Math.max(0,maxRmf-rmfBought);
+  const recMonthly=rmfLeft>0?Math.round(rmfLeft/monthsLeft):0;
+
+  const incForCalc=annualInc||annualised;
+  const before=thaiTax(incForCalc,0,t.lifeIns,t.healthIns);
+  const after=thaiTax(incForCalc,rmfBought,t.lifeIns,t.healthIns);
+  const withMax=thaiTax(incForCalc,maxRmf,t.lifeIns,t.healthIns);
+  const saving=before.tax-after.tax;
+  const extraSaving=after.tax-withMax.tax;
+
   let html='';
-  html+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:11px 15px;margin-bottom:12px;font-size:13px;color:#1d4ed8;line-height:1.7">Income in '+year+': <strong>'+fmtFull(annualInc)+'</strong> · Annualised: <strong>'+fmtFull(Math.round(annualInc/monthsIn*12))+'</strong></div>';
-  html+='<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:16px 20px;margin-bottom:12px;text-align:center"><div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Estimated Tax — After RMF</div><div style="font-size:36px;font-weight:800;color:#16a34a;line-height:1">'+fmtFull(after.tax)+'</div><div style="font-size:13px;color:#16a34a;margin-top:4px">Saving <strong>'+fmtFull(saving)+'</strong> vs no RMF deduction</div><div style="font-size:11px;color:#999;margin-top:2px">Taxable income after deductions: '+fmtFull(after.taxable)+'</div></div>';
-  html+='<div class="grid-2" style="margin-bottom:12px"><div class="stat-card" style="text-align:center;background:#fef2f2"><div class="stat-label" style="color:#dc2626">Without RMF</div><div class="stat-val" style="color:#dc2626">'+fmtFull(before.tax)+'</div></div><div class="stat-card" style="text-align:center;background:#fffbf5"><div class="stat-label" style="color:#c2410c">If Max RMF ('+fmtFull(maxRmf)+')</div><div class="stat-val" style="color:#F7931A">'+fmtFull(withMax.tax)+'</div><div class="stat-sub">save '+fmtFull(extraSaving)+' more</div></div></div>';
-  html+='<div class="grid-2"><div><div class="card"><div class="card-title">RMF — How Much to Buy</div><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:10px"><label style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;display:block">RMF Purchased This Year (฿)</label><div style="display:flex;gap:8px;align-items:center"><input type="number" id="rmf-manual" value="'+rmfBought+'" placeholder="0" style="flex:1;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;font-size:14px;outline:none"><button class="btn btn-primary btn-sm" onclick="saveRMFManual()">Update</button></div></div>';
+
+  // Income source — logged vs manual
+  html+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:11px 15px;margin-bottom:12px;font-size:13px;color:#1d4ed8;line-height:1.8">';
+  if(annualInc>0){
+    html+='Income logged in '+year+': <strong>'+fmtFull(annualInc)+'</strong> · Projected annual: <strong>'+fmtFull(annualised)+'</strong>';
+  } else {
+    html+='No income logged for '+year+' yet. ';
+    html+='<span style="color:#dc2626">Enter your estimated annual income below to calculate tax.</span>';
+  }
+  html+='</div>';
+
+  // Manual income input (always shown, pre-fills from logged income)
+  html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Annual Income for Tax Calculation</div>';
+  html+='<div style="display:flex;gap:8px;align-items:center">';
+  html+='<input type="number" id="tax-inc-manual" value="'+(t.manualIncome||annualInc||annualised||'')+'" placeholder="e.g. 360000 (30k×12)" style="flex:1;border:1.5px solid #e0ded8;border-radius:7px;padding:9px 12px;font-size:14px;font-weight:600;outline:none">';
+  html+='<button class="btn btn-primary btn-sm" onclick="saveTaxIncome()">Use This</button>';
+  html+='</div>';
+  html+='<div style="font-size:11px;color:#aaa;margin-top:6px">Overrides logged income for tax calc. Leave blank to use income log automatically.</div>';
+  html+='</div>';
+
+  if(incForCalc<=0){
+    html+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:9px;padding:12px 15px;font-size:13px;color:#854d0e">Enter your annual income above to see tax estimates.</div>';
+    document.getElementById('content').innerHTML=html;return;
+  }
+
+  // Main tax result
+  html+='<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:16px 20px;margin-bottom:12px;text-align:center">';
+  html+='<div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Tax You Need to Pay</div>';
+  html+='<div style="font-size:38px;font-weight:900;color:#16a34a;line-height:1">'+fmtFull(after.tax)+'</div>';
+  if(saving>0)html+='<div style="font-size:13px;color:#16a34a;margin-top:4px">Saving <strong>'+fmtFull(saving)+'</strong> from RMF deduction</div>';
+  html+='<div style="font-size:11px;color:#999;margin-top:4px">Taxable income: '+fmtFull(after.taxable)+' &nbsp;·&nbsp; Gross: '+fmtFull(incForCalc)+'</div>';
+  html+='</div>';
+
+  // Deduction breakdown
+  const expD=Math.min(incForCalc*0.50,100000);
+  html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Deductions Breakdown</div>';
+  [
+    ['50% expense (max ฿100k)',expD,'#666'],
+    ['Personal allowance',60000,'#666'],
+    ['RMF',Math.min(rmfBought,incForCalc*0.30,500000),'#F7931A'],
+    ['Life insurance',Math.min(t.lifeIns||0,100000),'#666'],
+    ['Health insurance',Math.min(t.healthIns||0,25000),'#666'],
+  ].forEach(function(row){
+    html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:#666">'+row[0]+'</span><span style="font-weight:600;color:'+row[2]+'">'+fmtFull(row[1])+'</span></div>';
+  });
+  html+='<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:700"><span>Total deductions</span><span>'+fmtFull(expD+60000+Math.min(rmfBought,incForCalc*0.30,500000)+Math.min(t.lifeIns||0,100000)+Math.min(t.healthIns||0,25000))+'</span></div>';
+  html+='</div>';
+
+  html+='<div class="grid-2" style="margin-bottom:12px">';
+  html+='<div class="stat-card" style="text-align:center;background:#fef2f2"><div class="stat-label" style="color:#dc2626">Without RMF</div><div class="stat-val" style="color:#dc2626">'+fmtFull(before.tax)+'</div></div>';
+  html+='<div class="stat-card" style="text-align:center;background:#fffbf5"><div class="stat-label" style="color:#c2410c">If Max RMF ('+fmtFull(maxRmf)+')</div><div class="stat-val" style="color:#F7931A">'+fmtFull(withMax.tax)+'</div><div class="stat-sub">save '+fmtFull(extraSaving)+' more</div></div>';
+  html+='</div>';
+
+  html+='<div class="grid-2"><div>';
+  html+='<div class="card"><div class="card-title">RMF — How Much to Buy</div>';
+  html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:10px">';
+  html+='<label style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;display:block">RMF Purchased This Year (฿)</label>';
+  html+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="rmf-manual" value="'+rmfBought+'" placeholder="0" style="flex:1;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;font-size:14px;outline:none"><button class="btn btn-primary btn-sm" onclick="saveRMFManual()">Update</button></div></div>';
   [['Max allowance',fmtFull(maxRmf),'#1a1917'],['Purchased',fmtFull(rmfBought),'#16a34a'],['Still need',fmtFull(rmfLeft),'#dc2626']].forEach(function(row){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+row[0]+'</span><span style="font-weight:700;color:'+row[2]+'">'+row[1]+'</span></div>';});
-  html+='<div style="margin-top:8px;font-size:12px;color:#666">→ Buy <strong style="color:#F7931A">'+fmtFull(recMonthly)+'/month</strong> for '+monthsLeft+' months</div><div style="font-size:11px;color:#aaa;margin-top:4px">Tax refund arrives March → recycle into BTC DCA.</div></div>';
+  html+='<div style="margin-top:8px;font-size:12px;color:#666">→ Buy <strong style="color:#F7931A">'+fmtFull(recMonthly)+'/month</strong> for '+monthsLeft+' months</div>';
+  html+='<div style="font-size:11px;color:#aaa;margin-top:4px">Tax refund arrives March → recycle into BTC DCA.</div></div>';
   html+='<div class="card"><div class="card-title">Other Deductions</div>';
-  [['lifeIns','Life Insurance',100000],['healthIns','Health Insurance',25000]].forEach(function(row){const k=row[0],label=row[1],max=row[2];html+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label style="font-size:12px;text-transform:none;letter-spacing:0;margin:0;color:#666">'+label+' (max '+fmtFull(max)+')</label><strong style="color:#F7931A">'+fmtFull(t[k]||0)+'</strong></div><input type="range" min="0" max="'+max+'" step="500" value="'+(t[k]||0)+'" oninput="updateTaxField(\''+k+'\',this.value)" style="width:100%;accent-color:#F7931A;margin-bottom:4px"><input type="number" value="'+(t[k]||0)+'" onchange="updateTaxField(\''+k+'\',this.value)" placeholder="0"></div>';});
-  html+='</div></div><div><div class="card"><div class="card-title">Thai Tax Brackets</div>';
-  [[0,150000,'0%'],[150001,300000,'5%'],[300001,500000,'10%'],[500001,750000,'15%'],[750001,1000000,'20%'],[1000001,2000000,'25%'],[2000001,5000000,'30%'],[5000001,99999999,'35%']].forEach(function(row){const inB=after.taxable>row[0];html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:'+(inB?'#F7931A':'#999')+'">'+row[0].toLocaleString()+' – '+(row[1]>9e6?'∞':row[1].toLocaleString())+'</span><span style="font-weight:'+(inB?700:400)+';color:'+(inB?'#F7931A':'#999')+'">'+row[2]+'</span></div>';});
-  html+='</div></div></div>';document.getElementById('content').innerHTML=html;
+  [['lifeIns','Life Insurance',100000],['healthIns','Health Insurance',25000]].forEach(function(row){
+    const k=row[0],label=row[1],max=row[2];
+    html+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label style="font-size:12px;text-transform:none;letter-spacing:0;margin:0;color:#666">'+label+' (max '+fmtFull(max)+')</label><strong style="color:#F7931A">'+fmtFull(t[k]||0)+'</strong></div>';
+    html+='<input type="range" min="0" max="'+max+'" step="500" value="'+(t[k]||0)+'" oninput="updateTaxField(\''+k+'\',this.value)" style="width:100%;accent-color:#F7931A;margin-bottom:4px">';
+    html+='<input type="number" value="'+(t[k]||0)+'" onchange="updateTaxField(\''+k+'\',this.value)" placeholder="0"></div>';
+  });
+  html+='</div></div><div>';
+  html+='<div class="card"><div class="card-title">Thai Tax Brackets 2024</div>';
+  [[0,150000,'0%'],[150001,300000,'5%'],[300001,500000,'10%'],[500001,750000,'15%'],[750001,1000000,'20%'],[1000001,2000000,'25%'],[2000001,5000000,'30%'],[5000001,99999999,'35%']].forEach(function(row){
+    const inB=after.taxable>row[0];
+    html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:'+(inB?'#F7931A':'#999')+'">'+row[0].toLocaleString()+' – '+(row[1]>9e6?'∞':row[1].toLocaleString())+'</span><span style="font-weight:'+(inB?700:400)+';color:'+(inB?'#F7931A':'#999')+'">'+row[2]+'</span></div>';
+  });
+  html+='</div></div></div>';
+  document.getElementById('content').innerHTML=html;
 }
 function saveRMFManual(){const val=parseFloat(document.getElementById('rmf-manual').value)||0;if(!DB.tax)DB.tax={};DB.tax.rmfManual=val;save();renderTax();}
 function updateTaxField(k,v){if(!DB.tax)DB.tax={};DB.tax[k]=parseFloat(v)||0;save();renderTax();}
+function saveTaxIncome(){const val=parseFloat(document.getElementById('tax-inc-manual').value)||0;if(!DB.tax)DB.tax={};DB.tax.manualIncome=val;save();renderTax();}
 
 // ─────────────────────────────────────────────────────
 // PAGE: GOALS
