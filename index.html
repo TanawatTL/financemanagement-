@@ -169,6 +169,9 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
 </style>
 </head>
 <body>
+PLACEHOLDER_BODY
+</body>
+</html>
 <div id="login-screen">
   <div id="login-box">
     <div id="login-logo">&#x2B21; FM</div>
@@ -941,125 +944,120 @@ function updateAssetVal(id,val){const a=DB.assets.find(x=>x.id===id);if(a){a.val
 // Thai Personal Income Tax 2024
 // Deductions: 50% of income (max 100k) + 60k personal + RMF + life ins + health ins
 function thaiTax(inc,rmf,li,hi){
-  if(!inc||inc<=0)return{taxable:0,tax:0,grossInc:0};
+  if(!inc||inc<=0)return{taxable:0,tax:0,effective:0,brackets:[],deduct:0};
   rmf=Math.min(rmf||0,inc*0.30,500000);
-  li=Math.min(li||0,100000);
-  hi=Math.min(hi||0,25000);
-  const expenseDeduct=Math.min(inc*0.50,100000); // 50% max 100k
-  const personalDeduct=60000;
-  const totalDeduct=expenseDeduct+personalDeduct+rmf+li+hi;
-  const taxable=Math.max(0,inc-totalDeduct);
-  const brackets=[[150000,0],[150000,0.05],[200000,0.10],[250000,0.15],[250000,0.20],[1000000,0.25],[3000000,0.30],[Infinity,0.35]];
+  li=Math.min(li||0,100000);hi=Math.min(hi||0,25000);
+  const expD=Math.min(inc*0.50,100000),perD=60000;
+  const totalD=expD+perD+rmf+li+hi;
+  const taxable=Math.max(0,inc-totalD);
+  const BRACKETS=[[150000,0,'0%'],[150000,0.05,'5%'],[200000,0.10,'10%'],[250000,0.15,'15%'],[250000,0.20,'20%'],[1000000,0.25,'25%'],[3000000,0.30,'30%'],[Infinity,0.35,'35%']];
   let tax=0,rem=taxable;
-  for(let i=0;i<brackets.length;i++){if(rem<=0)break;tax+=Math.min(rem,brackets[i][0])*brackets[i][1];rem-=brackets[i][0];}
-  return{taxable,tax:Math.round(tax),grossInc:inc};
+  const used=BRACKETS.map(b=>{if(rem<=0)return{amt:0,tax:0,rate:b[2],pct:b[1]};const chunk=Math.min(rem,b[0]);rem-=chunk;const t=chunk*b[1];tax+=t;return{amt:chunk,tax:t,rate:b[2],pct:b[1]};});
+  return{taxable,tax:Math.round(tax),effective:inc>0?Math.round(tax/inc*10000)/100:0,brackets:used,deduct:totalD};
 }
 
 function renderTax(){
   const year=activeMonth.slice(0,4);
-  let annualInc=yearIncome(year);
   const monthsIn=parseInt(activeMonth.slice(5))||1;
   const monthsLeft=Math.max(1,12-monthsIn+1);
-  const t=DB.tax||{};
-
-  // Allow manual income override if nothing logged yet
+  if(!DB.tax)DB.tax={};const t=DB.tax;
+  const loggedInc=yearIncome(year);
   const manualInc=parseFloat(t.manualIncome)||0;
-  if(annualInc<=0&&manualInc>0)annualInc=manualInc;
-  const annualised=annualInc>0?Math.round(annualInc/monthsIn*12):manualInc*12||0;
-
-  const maxRmf=Math.min((annualInc||annualised)*0.30,500000);
+  const annualInc=manualInc>0?manualInc:(loggedInc>0?loggedInc:0);
   const rmfBought=parseFloat(t.rmfManual)||0;
+  const maxRmf=annualInc>0?Math.min(annualInc*0.30,500000):0;
   const rmfLeft=Math.max(0,maxRmf-rmfBought);
   const recMonthly=rmfLeft>0?Math.round(rmfLeft/monthsLeft):0;
-
-  const incForCalc=annualInc||annualised;
-  const before=thaiTax(incForCalc,0,t.lifeIns,t.healthIns);
-  const after=thaiTax(incForCalc,rmfBought,t.lifeIns,t.healthIns);
-  const withMax=thaiTax(incForCalc,maxRmf,t.lifeIns,t.healthIns);
-  const saving=before.tax-after.tax;
-  const extraSaving=after.tax-withMax.tax;
-
+  const noRmf=thaiTax(annualInc,0,t.lifeIns,t.healthIns);
+  const withRmf=thaiTax(annualInc,rmfBought,t.lifeIns,t.healthIns);
+  const maxRmfCalc=thaiTax(annualInc,maxRmf,t.lifeIns,t.healthIns);
+  const saving=noRmf.tax-withRmf.tax;
+  const extraSaving=withRmf.tax-maxRmfCalc.tax;
   let html='';
 
-  // Income source — logged vs manual
-  html+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:11px 15px;margin-bottom:12px;font-size:13px;color:#1d4ed8;line-height:1.8">';
-  if(annualInc>0){
-    html+='Income logged in '+year+': <strong>'+fmtFull(annualInc)+'</strong> · Projected annual: <strong>'+fmtFull(annualised)+'</strong>';
-  } else {
-    html+='No income logged for '+year+' yet. ';
-    html+='<span style="color:#dc2626">Enter your estimated annual income below to calculate tax.</span>';
-  }
-  html+='</div>';
-
-  // Manual income input (always shown, pre-fills from logged income)
+  // Income input card
   html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Annual Income for Tax Calculation</div>';
-  html+='<div style="display:flex;gap:8px;align-items:center">';
-  html+='<input type="number" id="tax-inc-manual" value="'+(t.manualIncome||annualInc||annualised||'')+'" placeholder="e.g. 360000 (30k×12)" style="flex:1;border:1.5px solid #e0ded8;border-radius:7px;padding:9px 12px;font-size:14px;font-weight:600;outline:none">';
-  html+='<button class="btn btn-primary btn-sm" onclick="saveTaxIncome()">Use This</button>';
+  if(loggedInc>0)html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">From income log: <strong style="color:#16a34a">'+fmtFull(loggedInc)+'</strong></div>';
+  html+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">';
+  html+='<input type="number" id="tax-inc-manual" value="'+(manualInc||loggedInc||'')+'" placeholder="e.g. 360000 (฿30k×12)" style="flex:1;border:1.5px solid '+(manualInc>0?'#F7931A':'#e0ded8')+';border-radius:7px;padding:9px 12px;font-size:15px;font-weight:600;outline:none">';
+  html+='<button class="btn btn-primary" onclick="saveTaxIncome()">&#x2713; Confirm</button>';
+  if(manualInc>0)html+='<button class="btn btn-ghost btn-sm" onclick="clearTaxIncome()">Clear</button>';
   html+='</div>';
-  html+='<div style="font-size:11px;color:#aaa;margin-top:6px">Overrides logged income for tax calc. Leave blank to use income log automatically.</div>';
+  html+='<div style="font-size:11px;color:#aaa">'+(manualInc>0?'Using manual: <strong style="color:#F7931A">'+fmtFull(manualInc)+'</strong>. Click Clear to use income log.':(loggedInc>0?'Auto-using income log. Override above if needed.':'No income logged for '+year+'. Enter annual income above.'))+'</div>';
   html+='</div>';
 
-  if(incForCalc<=0){
-    html+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:9px;padding:12px 15px;font-size:13px;color:#854d0e">Enter your annual income above to see tax estimates.</div>';
+  if(!annualInc){
+    html+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:9px;padding:14px 16px;font-size:13px;color:#854d0e">Enter your annual income above and tap <strong>&#x2713; Confirm</strong> to calculate tax.</div>';
     document.getElementById('content').innerHTML=html;return;
   }
 
-  // Main tax result
-  html+='<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:16px 20px;margin-bottom:12px;text-align:center">';
-  html+='<div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Tax You Need to Pay</div>';
-  html+='<div style="font-size:38px;font-weight:900;color:#16a34a;line-height:1">'+fmtFull(after.tax)+'</div>';
-  if(saving>0)html+='<div style="font-size:13px;color:#16a34a;margin-top:4px">Saving <strong>'+fmtFull(saving)+'</strong> from RMF deduction</div>';
-  html+='<div style="font-size:11px;color:#999;margin-top:4px">Taxable income: '+fmtFull(after.taxable)+' &nbsp;·&nbsp; Gross: '+fmtFull(incForCalc)+'</div>';
-  html+='</div>';
-
-  // Deduction breakdown
-  const expD=Math.min(incForCalc*0.50,100000);
-  html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Deductions Breakdown</div>';
-  [
-    ['50% expense (max ฿100k)',expD,'#666'],
-    ['Personal allowance',60000,'#666'],
-    ['RMF',Math.min(rmfBought,incForCalc*0.30,500000),'#F7931A'],
-    ['Life insurance',Math.min(t.lifeIns||0,100000),'#666'],
-    ['Health insurance',Math.min(t.healthIns||0,25000),'#666'],
-  ].forEach(function(row){
-    html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:#666">'+row[0]+'</span><span style="font-weight:600;color:'+row[2]+'">'+fmtFull(row[1])+'</span></div>';
-  });
-  html+='<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;font-weight:700"><span>Total deductions</span><span>'+fmtFull(expD+60000+Math.min(rmfBought,incForCalc*0.30,500000)+Math.min(t.lifeIns||0,100000)+Math.min(t.healthIns||0,25000))+'</span></div>';
-  html+='</div>';
-
+  // Two main cards: without RMF vs with RMF
   html+='<div class="grid-2" style="margin-bottom:12px">';
-  html+='<div class="stat-card" style="text-align:center;background:#fef2f2"><div class="stat-label" style="color:#dc2626">Without RMF</div><div class="stat-val" style="color:#dc2626">'+fmtFull(before.tax)+'</div></div>';
-  html+='<div class="stat-card" style="text-align:center;background:#fffbf5"><div class="stat-label" style="color:#c2410c">If Max RMF ('+fmtFull(maxRmf)+')</div><div class="stat-val" style="color:#F7931A">'+fmtFull(withMax.tax)+'</div><div class="stat-sub">save '+fmtFull(extraSaving)+' more</div></div>';
+  html+='<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center">';
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#dc2626;margin-bottom:6px">Without RMF</div>';
+  html+='<div style="font-size:30px;font-weight:900;color:#dc2626;line-height:1">'+fmtFull(noRmf.tax)+'</div>';
+  html+='<div style="font-size:12px;color:#dc2626;margin-top:4px">Effective rate: <strong>'+noRmf.effective+'%</strong></div>';
+  html+='<div style="font-size:11px;color:#aaa;margin-top:2px">Taxable: '+fmtFull(noRmf.taxable)+'</div>';
+  html+='</div>';
+  html+='<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:12px;padding:14px 16px;text-align:center">';
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#16a34a;margin-bottom:6px">With RMF ('+fmtFull(rmfBought)+')</div>';
+  html+='<div style="font-size:30px;font-weight:900;color:#16a34a;line-height:1">'+fmtFull(withRmf.tax)+'</div>';
+  html+='<div style="font-size:12px;color:#16a34a;margin-top:4px">Effective rate: <strong>'+withRmf.effective+'%</strong>'+(saving>0?' · Saving '+fmtFull(saving):'')+'</div>';
+  html+='<div style="font-size:11px;color:#aaa;margin-top:2px">Taxable: '+fmtFull(withRmf.taxable)+'</div>';
+  html+='</div>';
   html+='</div>';
 
+  if(extraSaving>0)html+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#c2410c">Buy <strong>'+fmtFull(rmfLeft)+'</strong> more RMF → save extra <strong>'+fmtFull(extraSaving)+'</strong> &nbsp;·&nbsp; <strong>'+fmtFull(recMonthly)+'/month</strong> for '+monthsLeft+' months</div>';
+
+  // Bracket breakdown with bars
+  html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Bracket Breakdown &mdash; Taxable: '+fmtFull(withRmf.taxable)+'</div>';
+  const maxT=Math.max(...withRmf.brackets.map(b=>b.tax),1);
+  const ranges=['0–150k','150–300k','300–500k','500–750k','750k–1M','1M–2M','2M–5M','5M+'];
+  withRmf.brackets.forEach(function(b,i){
+    const active=b.amt>0;
+    html+='<div style="padding:6px 0;border-bottom:1px solid #f4f3ef">';
+    html+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">';
+    html+='<span style="color:'+(active?'#1a1917':'#ccc')+'">'+ranges[i]+' <span style="color:#aaa">@'+b.rate+'</span></span>';
+    html+='<span style="font-weight:600;color:'+(active?'#F7931A':'#ccc')+'">'+fmtFull(b.tax)+'</span>';
+    html+='</div>';
+    if(active){html+='<div style="background:#f0efe8;border-radius:99px;height:5px"><div style="width:'+Math.round(b.tax/maxT*100)+'%;height:5px;border-radius:99px;background:#F7931A"></div></div>';}
+    html+='</div>';
+  });
+  html+='<div style="display:flex;justify-content:space-between;padding-top:8px;font-size:13px;font-weight:700"><span>Total</span><span style="color:#F7931A">'+fmtFull(withRmf.tax)+' ('+withRmf.effective+'%)</span></div>';
+  html+='</div>';
+
+  // RMF + deductions + summary
   html+='<div class="grid-2"><div>';
-  html+='<div class="card"><div class="card-title">RMF — How Much to Buy</div>';
-  html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:10px">';
-  html+='<label style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;display:block">RMF Purchased This Year (฿)</label>';
-  html+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="rmf-manual" value="'+rmfBought+'" placeholder="0" style="flex:1;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;font-size:14px;outline:none"><button class="btn btn-primary btn-sm" onclick="saveRMFManual()">Update</button></div></div>';
-  [['Max allowance',fmtFull(maxRmf),'#1a1917'],['Purchased',fmtFull(rmfBought),'#16a34a'],['Still need',fmtFull(rmfLeft),'#dc2626']].forEach(function(row){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+row[0]+'</span><span style="font-weight:700;color:'+row[2]+'">'+row[1]+'</span></div>';});
-  html+='<div style="margin-top:8px;font-size:12px;color:#666">→ Buy <strong style="color:#F7931A">'+fmtFull(recMonthly)+'/month</strong> for '+monthsLeft+' months</div>';
-  html+='<div style="font-size:11px;color:#aaa;margin-top:4px">Tax refund arrives March → recycle into BTC DCA.</div></div>';
+  html+='<div class="card"><div class="card-title">RMF</div>';
+  html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:10px"><label style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;display:block">RMF Purchased This Year (฿)</label>';
+  html+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="rmf-manual" value="'+rmfBought+'" placeholder="0" style="flex:1;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;font-size:14px;outline:none"><button class="btn btn-primary btn-sm" onclick="saveRMFManual()">Save</button></div></div>';
+  [['Max allowable',fmtFull(maxRmf),'#1a1917'],['Purchased',fmtFull(rmfBought),'#16a34a'],['Remaining',fmtFull(rmfLeft),'#dc2626']].forEach(function(r){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+r[0]+'</span><span style="font-weight:700;color:'+r[2]+'">'+r[1]+'</span></div>';});
+  html+='<div style="margin-top:8px;font-size:11px;color:#aaa">Tax refund March → recycle into BTC DCA.</div></div>';
   html+='<div class="card"><div class="card-title">Other Deductions</div>';
   [['lifeIns','Life Insurance',100000],['healthIns','Health Insurance',25000]].forEach(function(row){
-    const k=row[0],label=row[1],max=row[2];
-    html+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label style="font-size:12px;text-transform:none;letter-spacing:0;margin:0;color:#666">'+label+' (max '+fmtFull(max)+')</label><strong style="color:#F7931A">'+fmtFull(t[k]||0)+'</strong></div>';
-    html+='<input type="range" min="0" max="'+max+'" step="500" value="'+(t[k]||0)+'" oninput="updateTaxField(\''+k+'\',this.value)" style="width:100%;accent-color:#F7931A;margin-bottom:4px">';
+    const k=row[0];
+    html+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label style="font-size:12px;text-transform:none;letter-spacing:0;margin:0;color:#666">'+row[1]+' (max '+fmtFull(row[2])+')</label><strong style="color:#F7931A">'+fmtFull(t[k]||0)+'</strong></div>';
+    html+='<input type="range" min="0" max="'+row[2]+'" step="500" value="'+(t[k]||0)+'" oninput="updateTaxField(\''+k+'\',this.value)" style="width:100%;accent-color:#F7931A;margin-bottom:4px">';
     html+='<input type="number" value="'+(t[k]||0)+'" onchange="updateTaxField(\''+k+'\',this.value)" placeholder="0"></div>';
   });
-  html+='</div></div><div>';
-  html+='<div class="card"><div class="card-title">Thai Tax Brackets 2024</div>';
-  [[0,150000,'0%'],[150001,300000,'5%'],[300001,500000,'10%'],[500001,750000,'15%'],[750001,1000000,'20%'],[1000001,2000000,'25%'],[2000001,5000000,'30%'],[5000001,99999999,'35%']].forEach(function(row){
-    const inB=after.taxable>row[0];
-    html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:'+(inB?'#F7931A':'#999')+'">'+row[0].toLocaleString()+' – '+(row[1]>9e6?'∞':row[1].toLocaleString())+'</span><span style="font-weight:'+(inB?700:400)+';color:'+(inB?'#F7931A':'#999')+'">'+row[2]+'</span></div>';
+  html+='</div></div>';
+  html+='<div><div class="card"><div class="card-title">Deductions Summary</div>';
+  const expD=Math.min(annualInc*0.50,100000),rmfD=Math.min(rmfBought,annualInc*0.30,500000),liD=Math.min(t.lifeIns||0,100000),hiD=Math.min(t.healthIns||0,25000);
+  [['50% expense (cap ฿100k)',expD],['Personal allowance',60000],['RMF',rmfD],['Life insurance',liD],['Health insurance',hiD]].forEach(function(r){
+    if(r[1]<=0)return;
+    html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+r[0]+'</span><span style="font-weight:600">'+fmtFull(r[1])+'</span></div>';
   });
+  const totalD=expD+60000+rmfD+liD+hiD;
+  html+='<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding-top:7px;border-top:1px solid #e8e6e0"><span>Total deductions</span><span>'+fmtFull(totalD)+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span style="color:#aaa">Gross income</span><span>'+fmtFull(annualInc)+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Taxable income</span><span style="color:#F7931A">'+fmtFull(withRmf.taxable)+'</span></div>';
   html+='</div></div></div>';
   document.getElementById('content').innerHTML=html;
 }
 function saveRMFManual(){const val=parseFloat(document.getElementById('rmf-manual').value)||0;if(!DB.tax)DB.tax={};DB.tax.rmfManual=val;save();renderTax();}
 function updateTaxField(k,v){if(!DB.tax)DB.tax={};DB.tax[k]=parseFloat(v)||0;save();renderTax();}
-function saveTaxIncome(){const val=parseFloat(document.getElementById('tax-inc-manual').value)||0;if(!DB.tax)DB.tax={};DB.tax.manualIncome=val;save();renderTax();}
+function saveTaxIncome(){const el=document.getElementById('tax-inc-manual');const val=parseFloat(el&&el.value)||0;if(!DB.tax)DB.tax={};DB.tax.manualIncome=val;save();renderTax();toast(val>0?'Income confirmed: '+fmtFull(val):'Cleared','ok');}
+function clearTaxIncome(){if(!DB.tax)DB.tax={};DB.tax.manualIncome=0;save();renderTax();}
 
 // ─────────────────────────────────────────────────────
 // PAGE: GOALS
@@ -1227,7 +1225,7 @@ function updateSyncBadge(state,detail){
   btn.dataset.syncState=state;btn.dataset.syncDetail=detail||'';
 }
 
-async function cloudPull(){
+async function cloudPull(force){
   const url=_fbUrl();if(!url){updateSyncBadge('off');return false;}
   updateSyncBadge('busy');
   try{
@@ -1239,12 +1237,17 @@ async function cloudPull(){
       return false;
     }
     const data=await r.json();
-    if(!data||typeof data!=='object'||Array.isArray(data)){updateSyncBadge('ok','No cloud data yet.');return false;}
-    // Sanitize — Firebase converts empty arrays to null
+    if(!data||typeof data!=='object'||Array.isArray(data)){
+      updateSyncBadge('ok','No cloud data yet.');return false;
+    }
     const safe=_sanitize(data);
-    const hasRemote=safe.transactions.length>0||safe.btcEntries.length>0||safe.income.length>0||safe.assets.length>0;
+    const hasRemote=safe.transactions.length>0||safe.btcEntries.length>0||safe.income.length>0||safe.assets.length>0||safe.portfolio.length>0;
     const hasLocal=DB.transactions.length>0||DB.btcEntries.length>0||DB.income.length>0;
-    if(!hasRemote&&hasLocal){updateSyncBadge('ok','Cloud empty — keeping local.');return false;}
+    // On auto-pull (startup): skip if cloud has no real data but local does
+    // On manual pull (force=true): always apply cloud data
+    if(!force&&!hasRemote&&hasLocal){
+      updateSyncBadge('ok','Cloud empty — local kept.');return false;
+    }
     localStorage.setItem(SK,JSON.stringify(safe));DB=initDB();
     updateSyncBadge('ok','Pulled '+new Date().toLocaleTimeString());return true;
   }catch(e){
@@ -1253,14 +1256,14 @@ async function cloudPull(){
 }
 
 async function cloudPush(){
-  const url=_fbUrl();if(!url)return;
-  const now=Date.now();if(now-_lastPushAt<5000)return;
+  const url=_fbUrl();if(!url)return false;
+  const now=Date.now();if(now-_lastPushAt<5000)return false;
   _lastPushAt=now;
   try{
     const r=await _fetchTimeout(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)},8000);
-    if(r.ok){updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());}
-    else{const b=await r.text().catch(()=>'');updateSyncBadge('err','Push '+r.status+': '+b.slice(0,80));}
-  }catch(e){updateSyncBadge('err',e.message==='Timeout'?'Push timed out':'Push: '+e.message);}
+    if(r.ok){updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());return true;}
+    else{const b=await r.text().catch(()=>'');updateSyncBadge('err','Push '+r.status+': '+b.slice(0,80));return false;}
+  }catch(e){updateSyncBadge('err',e.message==='Timeout'?'Push timed out':'Push: '+e.message);return false;}
 }
 
 // Sanitize data pulled from Firebase (converts null arrays back to [])
@@ -1318,14 +1321,28 @@ function closeSyncModal(){const m=document.getElementById('sync-modal');if(m)m.r
 
 async function doSyncTest(){
   closeSyncModal();_lastPushAt=0;
-  await cloudPush();
-  await new Promise(r=>setTimeout(r,1000));
-  const ok=await cloudPull();
+  const pushed=await cloudPush();
+  if(!pushed){showSyncModal();return;}
+  // Wait briefly for Firebase write to propagate
+  await new Promise(r=>setTimeout(r,1200));
+  const pulled=await cloudPull(true);
   showSyncModal();
-  toast(ok?'✓ Sync working':'✗ Sync failed — see ☁ for details',ok?'ok':'err');
+  toast(pushed&&pulled?'✓ Sync working':'Push OK but pull returned empty — check rules',pushed&&pulled?'ok':'err');
 }
-async function doSyncPull(){closeSyncModal();const ok=await cloudPull();if(ok){toast('Pulled ✓','ok');navigate(currentPage);}else toast('Pull failed — see ☁','err');}
-async function doSyncPush(){closeSyncModal();_lastPushAt=0;await cloudPush();toast('Pushed ✓','ok');}
+async function doSyncPull(){
+  closeSyncModal();
+  const ok=await cloudPull(true); // force=true: always apply cloud data
+  if(ok){toast('✓ Pulled from cloud','ok');navigate(currentPage);}
+  else{
+    const detail=document.getElementById('sync-btn')?.dataset.syncDetail||'';
+    toast(detail||'No data in cloud yet — push first','err');
+  }
+}
+async function doSyncPush(){
+  closeSyncModal();_lastPushAt=0;
+  const ok=await cloudPush();
+  toast(ok?'✓ Pushed to cloud':'✗ Push failed — see ☁',ok?'ok':'err');
+}
 
 // ─────────────────────────────────────────────────────
 // APP STARTUP
