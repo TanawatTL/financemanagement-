@@ -305,7 +305,8 @@ PLACEHOLDER_BODY
   <div class="nav-item" data-page="portfolio"><span class="icon">&#x2197;</span> FIRE Overview</div>
   <div id="sidebar-footer">
     <div id="user-badge">&#x1F464; <span id="user-name-display">&mdash;</span></div><br>
-    <button id="logout-btn" onclick="doLogout()">Sign out</button><br>
+    <button id="logout-btn" onclick="doLogout()">Sign out</button>
+    <button id="delete-acct-btn" onclick="showDeleteAccountModal()" style="font-size:10px;color:#6b3a3a;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;margin-left:10px">Delete account</button><br>
     <span style="font-size:9px;color:#333">Last save: <span id="last-saved">&mdash;</span></span>
   </div>
 </aside>
@@ -338,6 +339,7 @@ PLACEHOLDER_BODY
     <button class="more-btn" onclick="showExportModal();toggleMore()"><span class="more-btn-icon">&#x2193;</span>Export</button>
     <button class="more-btn" onclick="importData();toggleMore()"><span class="more-btn-icon">&#x2191;</span>Import</button>
     <button class="more-btn" onclick="doLogout()"><span class="more-btn-icon">&#x1F512;</span>Logout</button>
+    <button class="more-btn" style="color:#8b3a3a" onclick="showDeleteAccountModal();toggleMore()"><span class="more-btn-icon">&#x1F5D1;</span>Delete acct</button>
   </div>
 </div>
 </div>
@@ -1342,6 +1344,65 @@ async function doSyncPush(){
   closeSyncModal();_lastPushAt=0;
   const ok=await cloudPush();
   toast(ok?'✓ Pushed to cloud':'✗ Push failed — see ☁',ok?'ok':'err');
+}
+
+// ─────────────────────────────────────────────────────
+// DELETE ACCOUNT
+// Permanently removes this account's local data, its
+// entry in FM_ACCTS, and (if cloud sync configured) the
+// Firebase copy at /u/<pwHash>. Requires typing the exact
+// username to confirm — no browser confirm() dialogs.
+// ─────────────────────────────────────────────────────
+function showDeleteAccountModal(){
+  closeDeleteAccountModal();
+  let h='<div id="delete-acct-modal" onclick="if(event.target.id===\'delete-acct-modal\')closeDeleteAccountModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:16px">';
+  h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:420px;max-width:100%;max-height:90vh;overflow-y:auto">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:16px;font-weight:700;color:#dc2626">&#x1F5D1; Delete Account</div><button onclick="closeDeleteAccountModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button></div>';
+  h+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#991b1b;line-height:1.6">This permanently deletes <strong>'+currentUsername+'</strong> — all transactions, BTC entries, net worth, goals, and settings. This device\'s local copy'+(_fbConfigured()?' and the cloud backup':'')+' will both be erased. This cannot be undone.</div>';
+  h+='<label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type your username (<strong>'+currentUsername+'</strong>) to confirm</label>';
+  h+='<input type="text" id="del-acct-confirm-input" placeholder="'+currentUsername+'" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;margin-bottom:14px" oninput="document.getElementById(\'del-acct-confirm-btn\').disabled=(this.value!==currentUsername)">';
+  h+='<div style="display:flex;gap:8px"><button class="btn btn-ghost" style="flex:1" onclick="closeDeleteAccountModal()">Cancel</button><button id="del-acct-confirm-btn" class="btn" style="flex:1;background:#dc2626;color:#fff" disabled onclick="confirmDeleteAccount()">Delete Permanently</button></div>';
+  h+='<div id="del-acct-status" style="font-size:12px;text-align:center;margin-top:10px;min-height:16px"></div>';
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+function closeDeleteAccountModal(){const m=document.getElementById('delete-acct-modal');if(m)m.remove();}
+async function confirmDeleteAccount(){
+  const input=document.getElementById('del-acct-confirm-input');
+  if(!input||input.value!==currentUsername)return;
+  const statusEl=document.getElementById('del-acct-status');
+  const btn=document.getElementById('del-acct-confirm-btn');if(btn)btn.disabled=true;
+  if(statusEl){statusEl.textContent='Deleting…';statusEl.style.color='#888';}
+  const dataKeyToRemove=currentDataKey,pwHashToRemove=currentPwHash;
+  try{
+    // Clear cloud copy first (best-effort — local deletion proceeds regardless)
+    if(_fbConfigured()){
+      const url=_fbUrl();
+      if(url)await _fetchTimeout(url,{method:'DELETE'},8000).catch(()=>{});
+    }
+    // Remove account entry from the accounts index
+    const accts=getAccounts();
+    Object.keys(accts).forEach(uHash=>{if(accts[uHash].dataKey===dataKeyToRemove)delete accts[uHash];});
+    saveAccounts(accts);
+    // Remove this account's local data + recovery hash + remembered session
+    if(dataKeyToRemove)localStorage.removeItem(dataKeyToRemove);
+    if(dataKeyToRemove)localStorage.removeItem('FM_PH_'+dataKeyToRemove);
+    sessionStorage.removeItem('fm_sess');
+    localStorage.removeItem('fm_remember');
+    if(priceInterval){clearInterval(priceInterval);priceInterval=null;}
+    if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+    closeDeleteAccountModal();
+    currentDataKey=null;currentUsername='';currentPwHash='';SK='fm_v3';DB=initDB();
+    document.getElementById('app').style.display='none';
+    document.getElementById('setup-screen').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('l-user').value='';document.getElementById('l-pass').value='';
+    document.getElementById('login-err').textContent='';
+    toast('Account deleted','ok');
+  }catch(e){
+    if(statusEl){statusEl.textContent='Error: '+e.message;statusEl.style.color='#dc2626';}
+    if(btn)btn.disabled=false;
+  }
 }
 
 // ─────────────────────────────────────────────────────
