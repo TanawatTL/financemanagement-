@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Financial Management</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f4f3ef;color:#1a1917;}
@@ -796,7 +797,11 @@ function renderMonthlyBody(){
   html+='<div class="tbl-wrap"><table><thead><tr><th>Item</th><th style="width:100px">Budget (฿)</th><th style="width:110px"></th></tr></thead><tbody>'+buildBudgetRows()+'</tbody></table></div>';
   if(budgetEditMode){html+='<div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="toggleAddBudget()">+ New Category</button></div><div id="add-budget-form" style="display:none;margin-top:8px"><div class="form-row c3"><div><label>Category</label><input type="text" id="bcat" placeholder="e.g. Survival"></div><div><label>Item</label><input type="text" id="bitem" placeholder="e.g. Gym"></div><div><label>Amount (฿)</label><input type="number" id="balloc" placeholder="0"></div></div><button class="btn btn-primary btn-sm" onclick="addBudget()">Save</button></div>';}
   html+='</div>';
-  html+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;cursor:pointer;padding:12px;background:#F7931A;color:#fff;border-radius:10px;font-size:14px;font-weight:700;margin-bottom:10px;box-sizing:border-box">📂 Import CSV<input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="importCSV()"></label>';
+  html+='<div style="display:flex;gap:8px;margin-bottom:10px">';
+  html+='<label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:12px;background:#F7931A;color:#fff;border-radius:10px;font-size:13px;font-weight:700;box-sizing:border-box">📂 Import CSV<input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="importCSV()"></label>';
+  html+='<label id="photo-import-label" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:12px;background:#1a1917;color:#fff;border-radius:10px;font-size:13px;font-weight:700;box-sizing:border-box">📷 Import Photo<input type="file" id="photo-file-input" accept="image/*" multiple style="display:none" onchange="importPhoto()"></label>';
+  html+='</div>';
+  html+='<div style="font-size:10px;color:#bbb;margin:-6px 0 10px;text-align:center">Photo import runs free on-device OCR — check the preview carefully, Thai text recognition isn\'t perfect</div>';
   html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Income</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:700;color:#16a34a">'+fmtFull(inc)+'</span><button class="btn btn-sm '+(editingIncomeSources?'btn-primary':'btn-ghost')+'" onclick="toggleIncomeSourceEdit()">'+(editingIncomeSources?'✓ Done':'✏ Sources')+'</button></div></div>';
   if(editingIncomeSources){const incSrcList=DB.incomeSources||[];html+='<div style="background:#f7f6f3;border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Income Sources</div>';incSrcList.forEach(function(name){html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="flex:1;font-size:13px">'+name+'</span><button style="background:none;border:none;color:#bbb;cursor:pointer;padding:2px 5px;font-size:13px" data-isn="'+name+'" onclick="moveIncomeSource(this.dataset.isn,-1)">▲</button><button style="background:none;border:none;color:#bbb;cursor:pointer;padding:2px 5px;font-size:13px" data-isn="'+name+'" onclick="moveIncomeSource(this.dataset.isn,1)">▼</button><button class="del-btn" style="padding:3px 8px;font-size:11px" data-isn="'+name+'" onclick="removeIncomeSource(this.dataset.isn)">✕</button></div>';});html+='<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="new-inc-src" placeholder="New source name" style="flex:1;border:1px solid #e0ded8;border-radius:6px;padding:6px 9px;font-size:13px;outline:none"><button class="btn btn-ghost btn-sm" onclick="addIncomeSource()">+ Add</button></div></div>';}
   const incSrcs=DB.incomeSources||['Salary','Side / Amway','Freelance','Bitcoin gains','Other'];
@@ -914,7 +919,9 @@ function saveFireSnapshot(){
   const btcAC=btcPrice>0?Math.round(btcValueTHB()):0,btcToLog=btcO||btcAC;if(btcToLog>0)upsertFireAsset('Bitcoin (THB value)',btcToLog);
   const entry={id:uid(),date:month,emergency:emg,bitcoin:btcToLog,gold,rmf,realEstate:re,salary,notes};
   const idx=DB.portfolio.findIndex(p=>p.date===month);if(idx>=0)DB.portfolio[idx]=entry;else{DB.portfolio.push(entry);DB.portfolio.sort((a,b)=>a.date.localeCompare(b.date));}
-  save();checkGoals();renderNetworth();const el=document.getElementById('fw-saved');if(el){el.textContent='Saved ✓';setTimeout(()=>{const e=document.getElementById('fw-saved');if(e)e.textContent='';},2000);}
+  save();checkGoals();renderNetworth();
+  ['fw-emg','fw-btc','fw-gold','fw-rmf','fw-re','fw-salary','fw-notes'].forEach(function(fid){const fe=document.getElementById(fid);if(fe)fe.value='';});
+  const el=document.getElementById('fw-saved');if(el){el.textContent='Saved ✓';setTimeout(()=>{const e=document.getElementById('fw-saved');if(e)e.textContent='';},2000);}
 }
 function renderNetworth(){
   if(!DB.assets)DB.assets=[];const{emg,gold,rmf,re,btcVal}=getFireData();const ta=totalAssets(),tl=totalLiab(),net=portfolioTotal();const latP=DB.portfolio.at(-1),btcAC=btcPrice>0?Math.round(btcValueTHB()):0;
@@ -930,15 +937,16 @@ function renderNetworth(){
   html+='<div class="form-row c2"><div><label>Name</label><input type="text" id="at-name" placeholder="e.g. KBank savings"></div><div><label>Value (฿)</label><input type="number" id="at-value" placeholder="0"></div></div>';
   html+='<button class="btn btn-primary" onclick="addAsset()">+ Add Item</button></div>';
   const assList=DB.assets.filter(a=>a.type==='asset');
-  if(assList.length>0){html+='<div class="card"><div class="card-title">Assets</div><div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Value (฿)</th><th></th></tr></thead><tbody>';assList.forEach(function(a){html+='<tr><td><strong>'+a.name+'</strong></td><td><span class="tag">'+a.category+'</span></td><td><input type="number" value="'+a.value+'" style="width:120px;border:1px solid #e0ded8;border-radius:4px;padding:4px 8px;font-size:13px" onchange="updateAssetVal(\''+a.id+'\',this.value)"></td><td><button class="del-btn" onclick="delAsset(\''+a.id+'\')">✕</button></td></tr>';});html+='</tbody></table></div><div style="text-align:right;font-weight:700;color:#16a34a;padding-top:8px;border-top:1px solid #f0efe8;margin-top:6px">Total: '+fmtFull(ta)+'</div></div>';}
+  if(assList.length>0){html+='<div class="card"><div class="card-title">Assets</div><div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Value (฿)</th><th></th></tr></thead><tbody>';assList.forEach(function(a){html+='<tr><td><strong>'+a.name+'</strong></td><td><span class="tag">'+a.category+'</span></td><td style="white-space:nowrap"><input type="number" id="at-val-'+a.id+'" value="'+a.value+'" style="width:100px;border:1px solid #e0ded8;border-radius:4px;padding:4px 6px;font-size:13px"> <button class="btn btn-ghost btn-sm" data-aid="'+a.id+'" onclick="updateAssetValBtn(this.dataset.aid)">Update</button></td><td><button class="del-btn" onclick="delAsset(\''+a.id+'\')">✕</button></td></tr>';});html+='</tbody></table></div><div style="text-align:right;font-weight:700;color:#16a34a;padding-top:8px;border-top:1px solid #f0efe8;margin-top:6px">Total: '+fmtFull(ta)+'</div></div>';}
   const liabList=DB.assets.filter(a=>a.type==='liability');
-  if(liabList.length>0){html+='<div class="card"><div class="card-title">Liabilities</div><div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Amount (฿)</th><th></th></tr></thead><tbody>';liabList.forEach(function(a){html+='<tr><td><strong>'+a.name+'</strong></td><td><span class="tag">'+a.category+'</span></td><td><input type="number" value="'+a.value+'" style="width:120px;border:1px solid #e0ded8;border-radius:4px;padding:4px 8px;font-size:13px" onchange="updateAssetVal(\''+a.id+'\',this.value)"></td><td><button class="del-btn" onclick="delAsset(\''+a.id+'\')">✕</button></td></tr>';});html+='</tbody></table></div><div style="text-align:right;font-weight:700;color:#dc2626;padding-top:8px;border-top:1px solid #f0efe8;margin-top:6px">Total Debt: '+fmtFull(tl)+'</div></div>';}
+  if(liabList.length>0){html+='<div class="card"><div class="card-title">Liabilities</div><div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Amount (฿)</th><th></th></tr></thead><tbody>';liabList.forEach(function(a){html+='<tr><td><strong>'+a.name+'</strong></td><td><span class="tag">'+a.category+'</span></td><td style="white-space:nowrap"><input type="number" id="at-val-'+a.id+'" value="'+a.value+'" style="width:100px;border:1px solid #e0ded8;border-radius:4px;padding:4px 6px;font-size:13px"> <button class="btn btn-ghost btn-sm" data-aid="'+a.id+'" onclick="updateAssetValBtn(this.dataset.aid)">Update</button></td><td><button class="del-btn" onclick="delAsset(\''+a.id+'\')">✕</button></td></tr>';});html+='</tbody></table></div><div style="text-align:right;font-weight:700;color:#dc2626;padding-top:8px;border-top:1px solid #f0efe8;margin-top:6px">Total Debt: '+fmtFull(tl)+'</div></div>';}
   if(DB.assets.length===0)html+='<div style="color:#bbb;text-align:center;padding:20px;font-size:13px">No items yet.</div>';
   document.getElementById('content').innerHTML=html;
 }
 function addAsset(){const type=document.getElementById('at-type').value,category=document.getElementById('at-cat').value,name=document.getElementById('at-name').value.trim(),value=parseFloat(document.getElementById('at-value').value)||0;if(!name)return toast('Enter a name.','err');if(!DB.assets)DB.assets=[];const existing=DB.assets.find(a=>a.name.toLowerCase().trim()===name.toLowerCase()&&a.type===type);if(existing){existing.value=value;existing.category=category;}else{DB.assets.push({id:uid(),type,category,name,value});}save();checkGoals();renderNetworth();}
 function delAsset(id){DB.assets=DB.assets.filter(a=>a.id!==id);save();checkGoals();renderNetworth();}
 function updateAssetVal(id,val){const a=DB.assets.find(x=>x.id===id);if(a){a.value=parseFloat(val)||0;save();checkGoals();}}
+function updateAssetValBtn(id){const el=document.getElementById('at-val-'+id);if(!el)return;updateAssetVal(id,el.value);toast('Updated ✓','ok');renderNetworth();}
 
 // ─────────────────────────────────────────────────────
 // PAGE: TAX PLANNER
@@ -1130,6 +1138,145 @@ function delCreditCard(id){DB.creditCards=(DB.creditCards||[]).filter(c=>c.id!==
 // ─────────────────────────────────────────────────────
 function parseCSVLine(line){const result=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){result.push(cur.trim());cur='';}else cur+=c;}result.push(cur.trim());return result;}
 function parseImportDate(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);if(m1){let[,d,mo,y]=m1;if(y.length===2)y='20'+y;let yr=parseInt(y);if(yr>2400)yr-=543;return yr+'-'+mo.padStart(2,'0')+'-'+d.padStart(2,'0');}return null;}
+// ─────────────────────────────────────────────────────
+// PHOTO IMPORT — extract transactions from screenshots
+// using free on-device OCR (Tesseract.js, no API/cost).
+// Supports two screenshot styles:
+// (1) category summary (one row per category, total only)
+// (2) transaction detail (date-grouped line items, each
+//     with category + merchant + optional grey note line)
+// OCR accuracy on Thai text is imperfect — the preview
+// modal below lets the person fix anything before saving.
+// ─────────────────────────────────────────────────────
+const THAI_MONTH_ABBR={'มค':1,'กพ':2,'มีค':3,'เมย':4,'พค':5,'มิย':6,'กค':7,'สค':8,'กย':9,'ตค':10,'พย':11,'ธค':12};
+function _thaiMonthRegex(){return/(ม\.?ค\.?|ก\.?พ\.?|มี\.?ค\.?|เม\.?ย\.?|พ\.?ค\.?|มิ\.?ย\.?|ก\.?ค\.?|ส\.?ค\.?|ก\.?ย\.?|ต\.?ค\.?|พ\.?ย\.?|ธ\.?ค\.?)/;}
+function parsePhotoOcrText(fullText){
+  const lines=fullText.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  // Find a header like "มิ.ย. 69" to establish month/year context (BE year - 543 = CE year)
+  let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1;
+  const headerRe=new RegExp(_thaiMonthRegex().source+'\\s*(\\d{2,4})');
+  for(let i=0;i<lines.length;i++){
+    const hm=lines[i].match(headerRe);
+    if(hm){
+      const mo=THAI_MONTH_ABBR[hm[1].replace(/\./g,'')];
+      const y=parseInt(hm[2]);
+      if(mo){curMonth=mo;curYear=y<100?(1957+y):(y>2400?y-543:y);break;}
+    }
+  }
+  const catKeys=ALL_CATS.slice().sort(function(a,b){return b.length-a.length;});
+  const dayNumRe=/^\d{1,2}$/;
+  const amtRe=/^[\d,]+(\.\d{1,2})?$/;
+  let runningDay=null;
+  const rows=[];
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    if(dayNumRe.test(line)){
+      const n=parseInt(line,10);
+      if(n>=1&&n<=31)runningDay=n;
+      continue;
+    }
+    const hm2=line.match(headerRe);
+    if(hm2){
+      const mo=THAI_MONTH_ABBR[hm2[1].replace(/\./g,'')];
+      if(mo)curMonth=mo;
+      continue;
+    }
+    const foundCat=catKeys.find(function(c){const head=c.split(',')[0].trim();return line===c||line.indexOf(head)===0;});
+    if(foundCat){
+      let merchant='',note='',amt=0,consumed=0;
+      for(let j=i+1;j<Math.min(i+4,lines.length);j++){
+        const compact=lines[j].replace(/\s/g,'');
+        if(amtRe.test(compact)){
+          amt=parseFloat(compact.replace(/,/g,''))||0;
+          consumed=j-i;
+          break;
+        }
+        if(!merchant)merchant=lines[j];else if(!note)note=lines[j];
+      }
+      if(amt>0){
+        const dateStr=runningDay?(curYear+'-'+String(curMonth).padStart(2,'0')+'-'+String(runningDay).padStart(2,'0')):null;
+        rows.push({date:dateStr,cat:foundCat,note:(merchant+(note?(' - '+note):'')).trim(),amt:amt});
+        i+=consumed;
+      }
+    }
+  }
+  return rows;
+}
+async function importPhoto(){
+  const el=document.getElementById('photo-file-input');
+  if(!el||!el.files||el.files.length===0)return toast('Select photo(s) first','err');
+  if(location.protocol==='file:')return toast('Photo import needs the app opened from its https:// link (e.g. GitHub Pages) — it can\'t run a Web Worker when opened as a local file.','err');
+  if(typeof Tesseract==='undefined')return toast('OCR library failed to load — check your connection','err');
+  const files=Array.from(el.files);
+  const label=document.getElementById('photo-import-label');if(label)label.style.opacity='.6';
+  toast('Reading '+files.length+' photo'+(files.length>1?'s':'')+'… (OCR takes ~10-20s)','ok');
+  let worker=null;
+  try{
+    worker=await Tesseract.createWorker(['tha','eng'],1,{logger:function(m){console.log('OCR:',m);}});
+    let fullText='';
+    for(const file of files){
+      const result=await worker.recognize(file);
+      fullText+=result.data.text+'\n\n';
+    }
+    const rows=parsePhotoOcrText(fullText);
+    if(rows.length===0)toast('Could not find any transactions — try a clearer/closer photo, or add manually','err');
+    else showPhotoImportPreview(rows);
+  }catch(e){
+    console.error('OCR error:',e);
+    let msg='unknown error';
+    try{msg=(e&&(e.message||(typeof e==='string'?e:JSON.stringify(e))))||msg;}catch(e2){}
+    toast('OCR failed: '+msg,'err');
+  }finally{
+    if(worker){try{await worker.terminate();}catch(e){}}
+  }
+  if(label)label.style.opacity='1';
+  el.value='';
+}
+let _photoImportRows=[];
+function showPhotoImportPreview(rows){
+  _photoImportRows=rows.map(function(r){return{
+    date:(r.date&&/^\d{4}-\d{2}-\d{2}$/.test(r.date))?r.date:(activeMonth+'-01'),
+    cat:ALL_CATS.includes(r.cat)?r.cat:'อื่นๆ',
+    note:r.note||'',
+    amt:parseFloat(r.amt)||0,
+    include:true
+  };});
+  renderPhotoImportModal();
+}
+function renderPhotoImportModal(){
+  closePhotoImportModal();
+  let h='<div id="photo-import-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:16px">';
+  h+='<div style="background:#fff;border-radius:14px;padding:20px 22px;width:560px;max-width:100%;max-height:88vh;overflow-y:auto">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:16px;font-weight:700">📷 Review Photo Import (OCR)</div><button onclick="closePhotoImportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:10px">Found '+_photoImportRows.length+' possible entries from OCR — check each carefully, uncheck any wrong ones, and fix category/amount/note before adding.</div>';
+  _photoImportRows.forEach(function(r,i){
+    h+='<div style="display:flex;gap:5px;align-items:center;padding:7px 0;border-bottom:1px solid #f0efe8;flex-wrap:wrap">';
+    h+='<input type="checkbox" '+(r.include?'checked':'')+' onchange="_photoImportRows['+i+'].include=this.checked">';
+    h+='<input type="date" value="'+r.date+'" style="width:118px;font-size:11px;border:1px solid #e0ded8;border-radius:5px;padding:4px" onchange="_photoImportRows['+i+'].date=this.value">';
+    h+='<select style="flex:1;min-width:110px;font-size:11px;border:1px solid #e0ded8;border-radius:5px;padding:4px" onchange="_photoImportRows['+i+'].cat=this.value">'+ALL_CATS.map(function(c){return'<option value="'+c+'"'+(c===r.cat?' selected':'')+'>'+(CAT_MAP[c]||c)+'</option>';}).join('')+'</select>';
+    h+='<input type="text" value="'+(r.note||'').replace(/"/g,'&quot;')+'" placeholder="note" style="flex:1;min-width:80px;font-size:11px;border:1px solid #e0ded8;border-radius:5px;padding:4px" onchange="_photoImportRows['+i+'].note=this.value">';
+    h+='<input type="number" value="'+r.amt+'" style="width:80px;font-size:11px;border:1px solid #e0ded8;border-radius:5px;padding:4px" onchange="_photoImportRows['+i+'].amt=parseFloat(this.value)||0">';
+    h+='</div>';
+  });
+  const total=_photoImportRows.filter(function(r){return r.include;}).reduce(function(s,r){return s+r.amt;},0);
+  h+='<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:10px 0">Total to add<span style="color:#F7931A">'+fmtFull(total)+'</span></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="closePhotoImportModal()">Cancel</button><button class="btn btn-primary" style="flex:1" onclick="confirmPhotoImport()">Add Transactions</button></div>';
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+function closePhotoImportModal(){const m=document.getElementById('photo-import-modal');if(m)m.remove();}
+function confirmPhotoImport(){
+  const rows=_photoImportRows.filter(function(r){return r.include&&r.amt>0;});
+  if(rows.length===0){toast('Nothing selected','err');closePhotoImportModal();return;}
+  rows.forEach(function(r){DB.transactions.push({id:uid(),date:r.date,cat:r.cat,amt:r.amt,note:r.note||''});});
+  DB.transactions.sort(function(a,b){return a.date.localeCompare(b.date);});
+  save();checkGoals();
+  closePhotoImportModal();
+  activeMonth=rows[0].date.slice(0,7);
+  renderMonthly();
+  toast('Added '+rows.length+' transaction'+(rows.length!==1?'s':''),'ok');
+}
+
 function importCSV(){
   const el=document.getElementById('csv-file-input');if(!el||!el.files[0])return toast('Select a CSV file first','err');
   const reader=new FileReader();
