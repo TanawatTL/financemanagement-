@@ -170,9 +170,6 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
 </style>
 </head>
 <body>
-PLACEHOLDER_BODY
-</body>
-</html>
 <div id="login-screen">
   <div id="login-box">
     <div id="login-logo">&#x2B21; FM</div>
@@ -1164,6 +1161,7 @@ function parsePhotoOcrText(fullText){
     }
   }
   const catKeys=ALL_CATS.slice().sort(function(a,b){return b.length-a.length;});
+  const OCR_CAT_ALIASES=[{match:'สุขภาพ',mapTo:'อื่นๆ'},{match:'ท่องเที่ยว',mapTo:'อื่นๆ'},{match:'บันเทิง',mapTo:'ความบันเทิง'},{match:'ครอบครัว',mapTo:'ครอบครัว'}];
   const dayNumRe=/^\d{1,2}$/;
   const amtRe=/^[\d,]+(\.\d{1,2})?$/;
   let runningDay=null;
@@ -1182,20 +1180,38 @@ function parsePhotoOcrText(fullText){
       continue;
     }
     const foundCat=catKeys.find(function(c){const head=c.split(',')[0].trim();return line===c||line.indexOf(head)===0;});
-    if(foundCat){
+    let aliasOriginal=null,useCat=foundCat;
+    if(!useCat){
+      const aliasHit=OCR_CAT_ALIASES.find(function(a){return line.indexOf(a.match)===0;});
+      if(aliasHit){useCat=aliasHit.mapTo;aliasOriginal=aliasHit.match;}
+    }
+    if(useCat){
       let merchant='',note='',amt=0,consumed=0;
-      for(let j=i+1;j<Math.min(i+4,lines.length);j++){
-        const compact=lines[j].replace(/\s/g,'');
-        if(amtRe.test(compact)){
-          amt=parseFloat(compact.replace(/,/g,''))||0;
-          consumed=j-i;
-          break;
+      // Category-summary layout: category name + amount often OCR'd as one line, e.g. "บ้าน, สาธารณูปโภค 8,173.45"
+      const sameLineAmt=line.match(/([\d]{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*$/);
+      if(sameLineAmt){
+        const candidate=parseFloat(sameLineAmt[1].replace(/,/g,''))||0;
+        if(candidate>0)amt=candidate;
+      }
+      // Transaction-detail layout: category on its own line, look ahead for merchant/note/amount
+      if(amt===0){
+        for(let j=i+1;j<Math.min(i+4,lines.length);j++){
+          const compact=lines[j].replace(/\s/g,'');
+          if(amtRe.test(compact)){
+            amt=parseFloat(compact.replace(/,/g,''))||0;
+            consumed=j-i;
+            break;
+          }
+          if(!merchant)merchant=lines[j];else if(!note)note=lines[j];
         }
-        if(!merchant)merchant=lines[j];else if(!note)note=lines[j];
       }
       if(amt>0){
         const dateStr=runningDay?(curYear+'-'+String(curMonth).padStart(2,'0')+'-'+String(runningDay).padStart(2,'0')):null;
-        rows.push({date:dateStr,cat:foundCat,note:(merchant+(note?(' - '+note):'')).trim(),amt:amt});
+        const noteParts=[];
+        if(aliasOriginal)noteParts.push(aliasOriginal);
+        if(merchant)noteParts.push(merchant);
+        if(note)noteParts.push(note);
+        rows.push({date:dateStr,cat:useCat,note:noteParts.join(' - '),amt:amt});
         i+=consumed;
       }
     }
@@ -1586,3 +1602,4 @@ async function startApp(){
 </script>
 </body>
 </html>
+
