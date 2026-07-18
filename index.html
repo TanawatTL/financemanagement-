@@ -184,7 +184,7 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
     <div id="login-attempts"></div>
     <div id="login-err"></div>
     <div id="login-badge">&#x1F512; Passwords hashed with SHA-256 &middot; never stored in plain text</div>
-    <div id="build-stamp" style="font-size:9px;color:#333;text-align:center;margin-top:6px">build 2026-07-18-photo-ocr-v4</div>
+    <div id="build-stamp" style="font-size:9px;color:#333;text-align:center;margin-top:6px">build 2026-07-18-photo-ocr-v5</div>
   </div>
 </div>
 
@@ -1180,26 +1180,34 @@ function parsePhotoOcrText(fullText){
       if(mo)curMonth=mo;
       continue;
     }
-    const foundCat=catKeys.find(function(c){const head=c.split(',')[0].trim();return line===c||line.indexOf(head)===0;});
+    const foundCat=catKeys.find(function(c){const head=c.split(',')[0].trim();return line.indexOf(head)!==-1;});
     let aliasOriginal=null,useCat=foundCat;
     if(!useCat){
-      const aliasHit=OCR_CAT_ALIASES.find(function(a){return line.indexOf(a.match)===0;});
+      const aliasHit=OCR_CAT_ALIASES.find(function(a){return line.indexOf(a.match)!==-1;});
       if(aliasHit){useCat=aliasHit.mapTo;aliasOriginal=aliasHit.match;}
     }
     if(useCat){
       let merchant='',note='',amt=0,consumed=0;
-      // Category-summary layout: category name + amount often OCR'd as one line, e.g. "บ้าน, สาธารณูปโภค 8,173.45"
-      const sameLineAmt=line.match(/([\d]{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*$/);
-      if(sameLineAmt){
-        const candidate=parseFloat(sameLineAmt[1].replace(/,/g,''))||0;
+      // Category-summary layout: category name + amount often OCR'd as one line, e.g. "@' บ้าน, สาธารณูปโภค  8,173.45 >"
+      // OCR can add icon-glyph noise before the category and stray characters (like the ">" chevron) after the amount,
+      // so pull out the LAST number-like token anywhere on the line rather than anchoring to line start/end.
+      const numsOnLine=line.match(/\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?/g);
+      if(numsOnLine&&numsOnLine.length>0){
+        const candidate=parseFloat(numsOnLine[numsOnLine.length-1].replace(/,/g,''))||0;
         if(candidate>0)amt=candidate;
       }
       // Transaction-detail layout: category on its own line, look ahead for merchant/note/amount
       if(amt===0){
         for(let j=i+1;j<Math.min(i+4,lines.length);j++){
+          const numsAhead=lines[j].match(/\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?/g);
           const compact=lines[j].replace(/\s/g,'');
           if(amtRe.test(compact)){
             amt=parseFloat(compact.replace(/,/g,''))||0;
+            consumed=j-i;
+            break;
+          }
+          if(numsAhead&&numsAhead.length>0&&lines[j].replace(/[^\d.,>\s]/g,'').length>=lines[j].length*0.5){
+            amt=parseFloat(numsAhead[numsAhead.length-1].replace(/,/g,''))||0;
             consumed=j-i;
             break;
           }
