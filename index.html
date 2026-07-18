@@ -184,7 +184,7 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
     <div id="login-attempts"></div>
     <div id="login-err"></div>
     <div id="login-badge">&#x1F512; Passwords hashed with SHA-256 &middot; never stored in plain text</div>
-    <div id="build-stamp" style="font-size:9px;color:#333;text-align:center;margin-top:6px">build 2026-07-18-photo-ocr-v5</div>
+    <div id="build-stamp" style="font-size:9px;color:#333;text-align:center;margin-top:6px">build 2026-07-18-photo-ocr-v6</div>
   </div>
 </div>
 
@@ -1148,6 +1148,9 @@ function parseImportDate(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$
 // ─────────────────────────────────────────────────────
 const THAI_MONTH_ABBR={'มค':1,'กพ':2,'มีค':3,'เมย':4,'พค':5,'มิย':6,'กค':7,'สค':8,'กย':9,'ตค':10,'พย':11,'ธค':12};
 function _thaiMonthRegex(){return/(ม\.?ค\.?|ก\.?พ\.?|มี\.?ค\.?|เม\.?ย\.?|พ\.?ค\.?|มิ\.?ย\.?|ก\.?ค\.?|ส\.?ค\.?|ก\.?ย\.?|ต\.?ค\.?|พ\.?ย\.?|ธ\.?ค\.?)/;}
+function _thaiSkeleton(s){
+  return (s||'').normalize('NFC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g,'');
+}
 function parsePhotoOcrText(fullText){
   const lines=fullText.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
   // Find a header like "มิ.ย. 69" to establish month/year context (BE year - 543 = CE year)
@@ -1180,10 +1183,11 @@ function parsePhotoOcrText(fullText){
       if(mo)curMonth=mo;
       continue;
     }
-    const foundCat=catKeys.find(function(c){const head=c.split(',')[0].trim();return line.indexOf(head)!==-1;});
+    const lineSkeleton=_thaiSkeleton(line);
+    const foundCat=catKeys.find(function(c){const head=_thaiSkeleton(c.split(',')[0].trim());return head.length>0&&lineSkeleton.indexOf(head)!==-1;});
     let aliasOriginal=null,useCat=foundCat;
     if(!useCat){
-      const aliasHit=OCR_CAT_ALIASES.find(function(a){return line.indexOf(a.match)!==-1;});
+      const aliasHit=OCR_CAT_ALIASES.find(function(a){return lineSkeleton.indexOf(_thaiSkeleton(a.match))!==-1;});
       if(aliasHit){useCat=aliasHit.mapTo;aliasOriginal=aliasHit.match;}
     }
     if(useCat){
@@ -1244,6 +1248,7 @@ async function importPhoto(){
       fullText+=result.data.text+'\n\n';
     }
     const rows=parsePhotoOcrText(fullText);
+    _lastOcrRawText=fullText;
     if(rows.length===0){toast('No categories matched — showing raw OCR text below','err');showOcrRawTextModal(fullText);}
     else showPhotoImportPreview(rows);
   }catch(e){
@@ -1269,6 +1274,7 @@ function showOcrRawTextModal(text){
   document.body.insertAdjacentHTML('beforeend',h);
 }
 function closeOcrRawTextModal(){const m=document.getElementById('ocr-raw-modal');if(m)m.remove();}
+let _lastOcrRawText='';
 let _photoImportRows=[];
 function showPhotoImportPreview(rows){
   _photoImportRows=rows.map(function(r){return{
@@ -1285,7 +1291,7 @@ function renderPhotoImportModal(){
   let h='<div id="photo-import-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:16px">';
   h+='<div style="background:#fff;border-radius:14px;padding:20px 22px;width:560px;max-width:100%;max-height:88vh;overflow-y:auto">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:16px;font-weight:700">📷 Review Photo Import (OCR)</div><button onclick="closePhotoImportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
-  h+='<div style="font-size:11px;color:#888;margin-bottom:10px">Found '+_photoImportRows.length+' possible entries from OCR — check each carefully, uncheck any wrong ones, and fix category/amount/note before adding.</div>';
+  h+='<div style="font-size:11px;color:#888;margin-bottom:10px">Found '+_photoImportRows.length+' possible entries from OCR — check each carefully, uncheck any wrong ones, and fix category/amount/note before adding. Missing a category? <a href="#" onclick="showOcrRawTextModal(_lastOcrRawText);return false;" style="color:#F7931A">View raw OCR text</a></div>';
   _photoImportRows.forEach(function(r,i){
     h+='<div style="display:flex;gap:5px;align-items:center;padding:7px 0;border-bottom:1px solid #f0efe8;flex-wrap:wrap">';
     h+='<input type="checkbox" '+(r.include?'checked':'')+' onchange="_photoImportRows['+i+'].include=this.checked">';
