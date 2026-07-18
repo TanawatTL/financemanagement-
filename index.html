@@ -1235,7 +1235,7 @@ async function importPhoto(){
       fullText+=result.data.text+'\n\n';
     }
     const rows=parsePhotoOcrText(fullText);
-    if(rows.length===0)toast('Could not find any transactions — try a clearer/closer photo, or add manually','err');
+    if(rows.length===0){toast('No categories matched — showing raw OCR text below','err');showOcrRawTextModal(fullText);}
     else showPhotoImportPreview(rows);
   }catch(e){
     console.error('OCR error:',e);
@@ -1248,6 +1248,18 @@ async function importPhoto(){
   if(label)label.style.opacity='1';
   el.value='';
 }
+function showOcrRawTextModal(text){
+  closeOcrRawTextModal();
+  let h='<div id="ocr-raw-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:16px">';
+  h+='<div style="background:#fff;border-radius:14px;padding:20px 22px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:16px;font-weight:700">Raw OCR Text</div><button onclick="closeOcrRawTextModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
+  h+='<div style="font-size:12px;color:#888;margin-bottom:10px">No known category names matched. This is exactly what OCR read from the photo — if it looks garbled, that\'s a photo/lighting/OCR-accuracy issue, not a bug you need to fix. Copy this and share it if you want help debugging.</div>';
+  h+='<textarea readonly style="width:100%;min-height:220px;font-size:11px;font-family:monospace;border:1px solid #e0ded8;border-radius:8px;padding:8px;white-space:pre-wrap;box-sizing:border-box">'+text.replace(/</g,'&lt;')+'</textarea>';
+  h+='<button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="closeOcrRawTextModal()">Close</button>';
+  h+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+function closeOcrRawTextModal(){const m=document.getElementById('ocr-raw-modal');if(m)m.remove();}
 let _photoImportRows=[];
 function showPhotoImportPreview(rows){
   _photoImportRows=rows.map(function(r){return{
@@ -1602,4 +1614,3 @@ async function startApp(){
 </script>
 </body>
 </html>
-
