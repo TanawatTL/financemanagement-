@@ -7,6 +7,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
+/* ===================================================================
+   FM -- Financial Management (open-source template)
+   -------------------------------------------------------------------
+   This is a single self-contained HTML file: all CSS, JS and HTML
+   live here. No build step, no framework, no external backend.
+   Data is stored per-account in the browser's localStorage only
+   (see "DATABASE / LOCALSTORAGE" section in the JS below).
+   Search for "SECTION:" comments to jump between logical parts.
+   =================================================================== */
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f4f3ef;color:#1a1917;}
 button{cursor:pointer;font-family:inherit;}
@@ -23,7 +32,6 @@ input,select,textarea{font-family:inherit;}
 #login-btn:hover{background:#e07e10;}
 #login-err{font-size:12px;color:#ef4444;text-align:center;margin-top:10px;min-height:18px;}
 #login-badge{font-size:10px;color:#444;text-align:center;margin-top:16px;}
-/* ── SETUP SCREEN ── */
 #setup-screen{display:none;position:fixed;inset:0;background:#f4f3ef;z-index:9998;overflow-y:auto;}
 #setup-inner{max-width:580px;margin:0 auto;padding:32px 20px 60px;}
 #setup-logo{font-size:20px;font-weight:800;color:#F7931A;margin-bottom:6px;}
@@ -64,10 +72,11 @@ input,select,textarea{font-family:inherit;}
 #topbar{background:#fff;border-bottom:1px solid #e8e6e0;padding:0 22px;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 #page-title{font-size:16px;font-weight:600;white-space:nowrap;}
 #topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.live-badge{font-size:10px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-weight:700;cursor:pointer;}
-#hide-btn,#exp-btn{background:none;border:1px solid #e0ded8;border-radius:7px;padding:4px 9px;font-size:14px;cursor:pointer;color:#555;line-height:1;}
-#hide-btn:hover,#exp-btn:hover{background:#f4f3ef;}
-#hide-btn.active{background:#fef9c3;border-color:#fde68a;}
+.icon-btn{background:none;border:1px solid #e0ded8;border-radius:7px;padding:4px 9px;font-size:14px;cursor:pointer;color:#555;line-height:1;}
+.icon-btn:hover{background:#f4f3ef;}
+.icon-btn.active{background:#fef9c3;border-color:#fde68a;}
+#credit-btn{font-size:10px;color:#999;background:none;border:1px solid #e8e6e0;border-radius:20px;padding:5px 10px;cursor:pointer;white-space:nowrap;}
+#credit-btn:hover{background:#f4f3ef;color:#666;}
 #content{flex:1;overflow-y:auto;padding:18px 22px;}
 .card{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:14px 18px;margin-bottom:12px;}
 .card-title{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:600;}
@@ -115,34 +124,28 @@ textarea{resize:vertical;min-height:60px;}
 .pa-val{text-align:right;flex-shrink:0;}
 .pa-amount{font-size:15px;font-weight:700;}
 .next-goal-bar{background:linear-gradient(135deg,#fffbf5,#fff7ed);border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:12px;}
-.goal-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid #e8e6e0;border-radius:9px;margin-bottom:7px;}
+.goal-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid #e8e6e0;border-radius:9px;margin-bottom:7px;flex-wrap:wrap;}
 .goal-cat{font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.06em;white-space:nowrap;flex-shrink:0;}
 .goal-name{font-size:13px;font-weight:600;min-width:150px;flex-shrink:0;}
 .goal-note{font-size:11px;color:#aaa;min-width:100px;flex-shrink:0;}
 .goal-bar-wrap{flex:1;min-width:60px;}
 .goal-pct-text{font-size:11px;color:#999;white-space:nowrap;flex-shrink:0;min-width:48px;text-align:right;}
 .goal-amt{font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;min-width:90px;text-align:right;}
-.goal-date{font-size:10px;color:#aaa;flex-shrink:0;min-width:60px;text-align:right;}
 .month-bar{background:#fff;border-bottom:1px solid #e8e6e0;padding:10px 22px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
 .month-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
 select.month-sel{border:1px solid #e0ded8;border-radius:6px;padding:5px 8px;font-size:13px;background:#f4f3ef;outline:none;min-width:130px;}
-#export-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;}
-#export-modal.open{display:flex;}
-#export-box{background:#fff;border-radius:14px;padding:24px 28px;width:420px;max-width:92vw;max-height:90vh;overflow-y:auto;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:14px;padding:24px 26px;width:440px;max-width:100%;max-height:88vh;overflow-y:auto;}
 .exp-section{background:#f4f3ef;border-radius:10px;padding:14px 16px;margin-bottom:12px;}
 .exp-title{font-size:12px;font-weight:700;color:#1a1917;margin-bottom:4px;}
 .exp-desc{font-size:11px;color:#888;margin-bottom:10px;line-height:1.5;}
-#bottom-nav{position:fixed;bottom:0;left:0;right:0;height:56px;background:#161614;border-top:1px solid #252422;align-items:stretch;z-index:100;}
-.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;border:none;color:#555;cursor:pointer;padding:5px 2px;-webkit-tap-highlight-color:transparent;}
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;height:56px;background:#161614;border-top:1px solid #252422;align-items:stretch;z-index:100;overflow-x:auto;}
+.bnav-item{flex:1;min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;border:none;color:#555;cursor:pointer;padding:5px 2px;-webkit-tap-highlight-color:transparent;}
 .bnav-item.active{color:#F7931A;}
-.bnav-icon{font-size:17px;line-height:1;}
-.bnav-label{font-size:9px;letter-spacing:.03em;font-family:inherit;}
-#more-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;}
-#more-sheet{display:none;position:fixed;bottom:56px;left:0;right:0;background:#fff;border-radius:16px 16px 0 0;padding:14px;z-index:201;box-shadow:0 -4px 24px rgba(0,0,0,.15);}
-#more-sheet.open,#more-overlay.open{display:block;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
-.more-btn{padding:12px 4px;background:#f4f3ef;border:none;border-radius:9px;text-align:center;font-size:10px;cursor:pointer;color:#1a1917;font-family:inherit;line-height:1.4;}
-.more-btn-icon{font-size:18px;display:block;margin-bottom:3px;}
+.bnav-icon{font-size:16px;line-height:1;}
+.bnav-label{font-size:8.5px;letter-spacing:.02em;font-family:inherit;}
+.qr-placeholder{width:140px;height:140px;border:2px dashed #e0ded8;border-radius:10px;margin:10px auto;display:flex;align-items:center;justify-content:center;font-size:11px;color:#bbb;text-align:center;padding:10px;}
 @media(max-width:768px){
 .app-shell{flex-direction:column;height:100dvh;overflow:hidden;}
 #sidebar{display:none;}
@@ -158,13 +161,14 @@ select.month-sel{border:1px solid #e0ded8;border-radius:6px;padding:5px 8px;font
 .stat-val{font-size:17px;}
 .stat-card,.card{padding:10px 12px;}
 table{font-size:12px;}
-.goal-row{flex-wrap:wrap;}
 .goal-note{display:none;}
 .month-bar{padding:8px 12px;}
 input[type=text],input[type=number],input[type=date],input[type=month],input[type=password],select,textarea{font-size:16px;}
 #setup-inner{padding:20px 14px 80px;}
 #setup-fire-num{font-size:30px;}
 #setup-scenarios{grid-template-columns:1fr 1fr 1fr;}
+#credit-btn{font-size:0;padding:5px 8px;}
+#credit-btn::after{content:'i';font-size:14px;}
 }
 #login-attempts{font-size:10px;color:#f59e0b;text-align:center;margin-top:6px;min-height:14px;}
 </style>
@@ -183,41 +187,45 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
     <button id="login-btn" onclick="doLogin()">Sign In / Create Account</button>
     <div id="login-attempts"></div>
     <div id="login-err"></div>
-    <div id="login-badge">&#x1F512; Passwords hashed with SHA-256 &middot; never stored in plain text</div>
-    <div id="build-stamp" style="font-size:9px;color:#333;text-align:center;margin-top:6px">build 2026-07-18-photo-ocr-v6</div>
+    <div id="login-badge">&#x1F512; Passwords hashed with SHA-256 &middot; stored locally in your browser only, never sent anywhere</div>
+    <button onclick="showCreditsModal()" style="display:block;margin:10px auto 0;background:none;border:none;font-size:10px;color:#444;cursor:pointer">by Shelf of Experience</button>
   </div>
 </div>
 
-<!-- ── SETUP / FIRE CALCULATOR ── -->
 <div id="setup-screen">
   <div id="setup-inner">
     <div id="setup-logo">&#x2B21; FM &mdash; FIRE Setup</div>
     <div id="setup-title">Calculate your retirement target</div>
-    <div id="setup-sub">Takes 30 seconds. Everything can be changed later in FIRE Overview.</div>
+    <div id="setup-sub">Takes 30 seconds. Everything can be changed later in Dashboard settings.</div>
 
     <div class="setup-section">
       <div class="setup-stitle">About You</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
           <label class="setup-label" style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Current Age</label>
-          <input class="si" type="number" id="s-age" value="23" min="16" max="80" oninput="calcFireSetup()">
+          <input class="si" type="number" id="s-age" placeholder="e.g. 25" min="16" max="80" oninput="calcFireSetup()">
           <div class="setup-hint">Your age today</div>
         </div>
         <div>
           <label class="setup-label" style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Target Retire Age</label>
-          <input class="si" type="number" id="s-ret-age" value="40" min="20" max="80" oninput="calcFireSetup()">
-          <div class="setup-hint">Hard max 50 recommended</div>
+          <input class="si" type="number" id="s-ret-age" placeholder="e.g. 50" min="20" max="80" oninput="calcFireSetup()">
+          <div class="setup-hint">When you'd like to reach FIRE</div>
         </div>
       </div>
+      <div style="margin-top:12px">
+        <label class="setup-label" style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Life Expectancy (age)</label>
+        <input class="si" type="number" id="s-life-exp" placeholder="e.g. 85" min="30" max="120" oninput="calcFireSetup()">
+        <div class="setup-hint">The age you're planning your portfolio to last until — used to show how many years of retirement it needs to cover</div>
+      </div>
       <div style="margin-top:10px;text-align:center;background:#f4f3ef;border-radius:8px;padding:8px;font-size:13px;color:#666">
-        &#x23F3; <span id="s-years-text" style="font-weight:700;color:#1a1917">17 years</span> to reach your goal
+        &#x23F3; <span id="s-years-text" style="font-weight:700;color:#1a1917">&mdash;</span>
       </div>
     </div>
 
     <div class="setup-section">
       <div class="setup-stitle">Monthly Expenses</div>
       <label style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">How much do you spend per month? (&#x0E3F;)</label>
-      <input class="si" type="number" id="s-expense" value="16000" min="1000" step="500" oninput="calcFireSetup()">
+      <input class="si" type="number" id="s-expense" placeholder="e.g. 20000" min="1000" step="500" oninput="calcFireSetup()">
       <div class="setup-hint">Rent, food, transport — exclude savings. You can sync from Monthly Budget later.</div>
     </div>
 
@@ -228,15 +236,15 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
       <div class="setup-hint">Grows your target over time. Over-prepare by design.</div>
       <div class="infl-warn" id="s-infl-warn">&#x26A0;&#xFE0F; Below 10% is optimistic. Recommended minimum is 10% for worst-case planning.</div>
       <div style="background:#f4f3ef;border-radius:8px;padding:10px 12px;font-size:11px;color:#888;line-height:1.8;margin-top:10px">
-        <strong style="color:#555">Why 10%?</strong> Thai inflation averages 2&ndash;4%, but 10% forces over-preparation. If inflation is lower, you retire earlier. Never under-prepare.
+        <strong style="color:#555">Why 10%?</strong> Real-world inflation averages 2&ndash;5% most years, but planning at 10% forces over-preparation. If actual inflation is lower, you retire earlier. Never under-prepare.
       </div>
     </div>
 
     <div id="setup-fire-card">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c2410c;margin-bottom:8px">Your FIRE Target</div>
-      <div id="setup-fire-num">&#x0E3F;24,260,000</div>
-      <div id="setup-fire-details">&#x0E3F;95,000/mo at retirement &nbsp;&middot;&nbsp; 17 years to go</div>
-      <div id="setup-fire-formula">&#x0E3F;16,000 &times; 1.10^17 &times; 12 &times; 25 = &#x0E3F;24.26M</div>
+      <div id="setup-fire-num">&#x0E3F;&mdash;</div>
+      <div id="setup-fire-details">Fill in your details above</div>
+      <div id="setup-fire-formula"></div>
       <div id="setup-fire-note">This is the portfolio size where investments generate enough to cover inflation-adjusted expenses forever (4% rule &times; 25)</div>
     </div>
 
@@ -247,21 +255,19 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
 
     <button id="setup-submit" onclick="saveSetup()">Start Tracking &#x2192;</button>
     <button id="setup-skip" onclick="skipSetup()">Skip for now &mdash; I'll set this up later</button>
-
-    <div style="margin-top:16px;border-top:1px solid #e8e6e0;padding-top:16px">
-      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Already have data on another device?</div>
-      <div style="font-size:12px;color:#888;margin-bottom:10px;line-height:1.6">Your data is tied to your username &amp; password. Just click below to pull it from cloud.</div>
-      <button onclick="restoreFromSetup()" style="padding:10px;background:#1a1917;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;width:100%">&#x2B07; Restore from Cloud</button>
-      <div id="setup-sync-status" style="font-size:12px;text-align:center;min-height:16px;margin-top:8px"></div>
-    </div>
   </div>
 </div>
 
-<div id="export-modal">
-  <div id="export-box">
+<div id="data-modal" class="modal-overlay">
+  <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <div style="font-size:16px;font-weight:700">Export Data</div>
-      <button onclick="closeExportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button>
+      <div style="font-size:16px;font-weight:700">Import / Export Data</div>
+      <button onclick="closeDataModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button>
+    </div>
+    <div class="exp-section">
+      <div class="exp-title">&#x1F4E5; Import Backup (JSON)</div>
+      <div class="exp-desc">Restore data from a previously exported JSON backup file. This overwrites your current data on this device.</div>
+      <button class="btn btn-primary btn-sm" onclick="importData()">Choose File &amp; Import</button>
     </div>
     <div class="exp-section">
       <div class="exp-title">&#x1F4C5; Monthly Report</div>
@@ -284,28 +290,51 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
   </div>
 </div>
 
+<div id="account-modal" class="modal-overlay">
+  <div class="modal-box" style="width:360px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">&#x1F464; Account</div>
+      <button onclick="closeAccountModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button>
+    </div>
+    <div style="font-size:13px;color:#666;margin-bottom:16px">Signed in as <strong id="acct-modal-username">&mdash;</strong></div>
+    <button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="closeAccountModal();doLogout()">Sign out</button>
+    <button class="btn" style="width:100%;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5" onclick="closeAccountModal();showDeleteAccountModal()">Delete account</button>
+  </div>
+</div>
+
+<div id="credits-modal" class="modal-overlay">
+  <div class="modal-box" style="width:380px;text-align:center">
+    <div style="display:flex;justify-content:flex-end"><button onclick="closeCreditsModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button></div>
+    <div style="font-size:26px;font-weight:800;color:#F7931A;margin-bottom:2px">&#x2B21; FM</div>
+    <div style="font-size:12px;color:#999;margin-bottom:18px">Financial Management &mdash; FIRE tracker</div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px">Created by Shelf of Experience</div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px">Open source &middot; single HTML file &middot; runs entirely in your browser</div>
+    <a href="#" id="credit-page-link" style="display:block;background:#161614;color:#fff;text-decoration:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:10px">&#x1F310; My page / links</a>
+    <a href="#" id="credit-coffee-link" style="display:block;background:#F7931A;color:#fff;text-decoration:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:10px">&#x2615; Buy me a coffee</a>
+    <div class="qr-placeholder">QR code<br>placeholder<br><span style="font-size:9px">(add your own image here)</span></div>
+  </div>
+</div>
+
 <div class="app-shell" id="app" style="display:none">
 <aside id="sidebar">
   <div id="sidebar-header">
     <div id="sidebar-title">&#x2B21; Financial Management</div>
-    <div id="sidebar-sub">Bitcoin-first &middot; FIRE plan</div>
+    <div id="sidebar-sub">FIRE planning &middot; net worth &middot; budget</div>
   </div>
   <div class="nav-section">Overview</div>
   <div class="nav-item active" data-page="dashboard"><span class="icon">&#x25C8;</span> Dashboard</div>
   <div class="nav-section">Monthly</div>
   <div class="nav-item" data-page="monthly"><span class="icon">&#x25F7;</span> Monthly Overview</div>
   <div class="nav-section">Investing</div>
-  <div class="nav-item" data-page="bitcoin"><span class="icon">&#x20BF;</span> Investing</div>
+  <div class="nav-item" data-page="investing"><span class="icon">&#x2197;</span> Investing</div>
   <div class="nav-section">Finance</div>
   <div class="nav-item" data-page="networth"><span class="icon">&#x25C8;</span> Net Worth</div>
   <div class="nav-item" data-page="tax"><span class="icon">%</span> Tax Planner</div>
   <div class="nav-item" data-page="goals"><span class="icon">&#x2726;</span> Goals</div>
-  <div class="nav-section">FIRE</div>
-  <div class="nav-item" data-page="portfolio"><span class="icon">&#x2197;</span> FIRE Overview</div>
   <div id="sidebar-footer">
     <div id="user-badge">&#x1F464; <span id="user-name-display">&mdash;</span></div><br>
     <button id="logout-btn" onclick="doLogout()">Sign out</button>
-    <button id="delete-acct-btn" onclick="showDeleteAccountModal()" style="font-size:10px;color:#6b3a3a;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;margin-left:10px">Delete account</button><br>
+    <button onclick="showDeleteAccountModal()" style="font-size:10px;color:#6b3a3a;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;margin-left:10px">Delete account</button><br>
     <span style="font-size:9px;color:#333">Last save: <span id="last-saved">&mdash;</span></span>
   </div>
 </aside>
@@ -313,10 +342,10 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
   <div id="topbar">
     <div id="page-title">Dashboard</div>
     <div id="topbar-right">
-      <button id="hide-btn" onclick="toggleHide()" title="Hide amounts">&#x1F441;</button>
-      <button id="exp-btn" onclick="showExportModal()" title="Export">&#x2193;</button>
-      <button id="sync-btn" onclick="showSyncModal()" title="Cloud sync — not configured" style="background:none;border:1px solid #e0ded8;border-radius:7px;padding:4px 9px;font-size:14px;cursor:pointer;color:#aaa;line-height:1">&#x2601;</button>
-      <span class="live-badge" id="live-badge" onclick="fetchBTCPrice()">&#x25CF; LIVE</span>
+      <button id="hide-btn" class="icon-btn" onclick="toggleHide()" title="Hide amounts">&#x1F441;</button>
+      <button class="icon-btn" onclick="showDataModal()" title="Import / Export data">&#x2B07;&#x2B06;</button>
+      <button id="credit-btn" onclick="showCreditsModal()">by Shelf of Experience</button>
+      <button class="icon-btn" onclick="showAccountModal()" title="Account">&#x1F464;</button>
     </div>
   </div>
   <div id="content"></div>
@@ -324,30 +353,55 @@ input[type=text],input[type=number],input[type=date],input[type=month],input[typ
 <nav id="bottom-nav">
   <button class="bnav-item active" data-page="dashboard"><span class="bnav-icon">&#x25C8;</span><span class="bnav-label">Home</span></button>
   <button class="bnav-item" data-page="monthly"><span class="bnav-icon">&#x25F7;</span><span class="bnav-label">Monthly</span></button>
-  <button class="bnav-item" data-page="bitcoin"><span class="bnav-icon">&#x20BF;</span><span class="bnav-label">Invest</span></button>
+  <button class="bnav-item" data-page="investing"><span class="bnav-icon">&#x2197;</span><span class="bnav-label">Invest</span></button>
+  <button class="bnav-item" data-page="networth"><span class="bnav-icon">&#x25C8;</span><span class="bnav-label">Net Worth</span></button>
+  <button class="bnav-item" data-page="tax"><span class="bnav-icon">%</span><span class="bnav-label">Tax</span></button>
   <button class="bnav-item" data-page="goals"><span class="bnav-icon">&#x2726;</span><span class="bnav-label">Goals</span></button>
-  <button class="bnav-item" onclick="toggleMore()"><span class="bnav-icon">&#x2630;</span><span class="bnav-label">More</span></button>
 </nav>
-<div id="more-overlay" onclick="toggleMore()"></div>
-<div id="more-sheet">
-  <div style="font-size:11px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">More</div>
-  <div class="more-grid">
-    <button class="more-btn" onclick="navigate('networth');toggleMore()"><span class="more-btn-icon">&#x25C8;</span>Net Worth</button>
-    <button class="more-btn" onclick="navigate('tax');toggleMore()"><span class="more-btn-icon">%</span>Tax Plan</button>
-    <button class="more-btn" onclick="navigate('portfolio');toggleMore()"><span class="more-btn-icon">&#x2197;</span>FIRE</button>
-    <button class="more-btn" onclick="showExportModal();toggleMore()"><span class="more-btn-icon">&#x2193;</span>Export</button>
-    <button class="more-btn" onclick="importData();toggleMore()"><span class="more-btn-icon">&#x2191;</span>Import</button>
-    <button class="more-btn" onclick="doLogout()"><span class="more-btn-icon">&#x1F512;</span>Logout</button>
-    <button class="more-btn" style="color:#8b3a3a" onclick="showDeleteAccountModal();toggleMore()"><span class="more-btn-icon">&#x1F5D1;</span>Delete acct</button>
-  </div>
-</div>
 </div>
 <script>
-// ═════════════════════════════════════════════════════
-// FM — Financial Management  v1.0
-// Bitcoin-first · FIRE tracker · Personal finance
-// Single-file HTML · localStorage + GitHub Gist sync
-// ═════════════════════════════════════════════════════
+/* ===================================================================
+   FM -- Financial Management  (open-source template)
+   -------------------------------------------------------------------
+   HOW THIS FILE IS ORGANIZED (search for these headers):
+     AUTH & SESSION          - multi-account login, SHA-256 hashing
+     SETUP / FIRE ONBOARDING - first-run wizard that sets fireSettings
+     CONSTANTS               - default categories, colors, seed data
+     DATABASE / LOCALSTORAGE - the "DB" object is the single source
+                                of truth; everything is read/written
+                                through DB and persisted with save()
+     HELPERS / FORMATTERS    - money/date formatting utilities
+     ROUTER / NAVIGATION     - navigate(page) swaps #content's HTML
+     PAGE: ...                - one render function per page, called
+                                by the router. Each is self-contained:
+                                it builds an HTML string and drops it
+                                into #content, then wires up handlers.
+     EXPORT / IMPORT         - JSON backup + printable HTML reports
+     ACCOUNT / CREDITS MODALS
+     APP STARTUP             - auto-login from a saved session
+
+   DATA MODEL (all inside the single `DB` object, one per account):
+     transactions[]        {id,date,cat,amt,note,cardId?}
+     income[]               {id,date,month,src,amt,note}
+     budget[] / budgetByMonth{} / budgetPresets{} - monthly budget plan
+     notes{month: {good,improve}}
+     creditCards[]          {id,name,limit,statementDay,dueDay,color,note}
+     incomeSources[]        list of strings shown in the income form
+     customInvestments[]    {id,name,ticker,color,link,dcaAmount,
+                              pricePerUnit,entries:[{id,date,amount,units,note}]}
+     assets[]               {id,type:'asset'|'liability',category,name,value}
+     goals[]                {id,name,target,cat,note,source?,custom?}
+     goalHits{}             goalId -> date string when it was reached
+     tax{}                  {manualIncome,rmfManual,lifeIns,healthIns}
+     emergencySettings{expense,months}
+     fireSettings{monthlyExpense,inflationRate,currentAge,retireAge,setupDone}
+
+   THERE IS NO BACKEND. Everything lives in the browser's localStorage
+   under a per-account key (see FM_ACCTS / getAccounts below). If you
+   want cloud sync, you would add it back in the SAVE / cloudPush spot
+   marked below -- there is none here by design (local-only, for
+   privacy when this is shared as an open-source template).
+   =================================================================== */
 window.onerror=function(msg,url,line,col,err){
   let d=document.getElementById('_errbanner');
   if(!d){d=document.createElement('div');d.id='_errbanner';
@@ -356,12 +410,17 @@ window.onerror=function(msg,url,line,col,err){
   d.textContent='JS Error: '+msg+' (line '+line+', col '+col+') — tap to dismiss';
   return false;
 };
+
 // ─────────────────────────────────────────────────────
-// AUTH & SESSION
+// SECTION: AUTH & SESSION
+// Each account gets its own localStorage key (dataKey),
+// derived deterministically from a hash of the username.
+// Passwords are hashed client-side (SHA-256) before being
+// compared/stored — this is NOT bank-grade security, just
+// enough to keep casual visitors out of each other's data.
 // ─────────────────────────────────────────────────────
 async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 
-// Show account status as user types username
 async function checkUsername(){
   const uRaw=document.getElementById('l-user').value.trim();
   const hint=document.getElementById('login-hint');if(!hint)return;
@@ -374,7 +433,7 @@ async function checkUsername(){
 const ACCTS_KEY='FM_ACCTS';
 function getAccounts(){try{return JSON.parse(localStorage.getItem(ACCTS_KEY))||{};}catch{return {};}}
 function saveAccounts(a){localStorage.setItem(ACCTS_KEY,JSON.stringify(a));}
-let currentDataKey=null,currentUsername='',currentPwHash='',SK='fm_v3';
+let currentDataKey=null,currentUsername='',SK='fm_v3';
 let loginAttempts=0,loginLocked=false,lockTimer=null;
 function toast(msg,type){
   let t=document.getElementById('_toast');
@@ -392,8 +451,6 @@ async function doLogin(){
   const btn=document.getElementById('login-btn');btn.textContent='…';btn.disabled=true;
   try{
     const uHash=await sha256(uRaw.toLowerCase()),pwHash=await sha256(uHash+':'+pass),accts=getAccounts();
-    currentPwHash=pwHash; // used as cloud sync path
-    localStorage.setItem('FM_PH_'+currentDataKey,pwHash); // persist so old sessions can recover it
     let isNewAccount=false;
     if(accts[uHash]){
       if(accts[uHash].pwHash!==pwHash){
@@ -404,39 +461,35 @@ async function doLogin(){
       }
       loginAttempts=0;currentDataKey=accts[uHash].dataKey;currentUsername=accts[uHash].displayName||uRaw;
     } else {
-      // dataKey is deterministic from uHash — same on every device for same credentials
-      // This is what makes cross-device sync work correctly
-      isNewAccount=true;const dataKey='FM_D_'+uHash;const legacy=localStorage.getItem('fm_v3');
+      // dataKey is deterministic from uHash — same on every device for the
+      // same username/password, which is what makes "sign in on a new
+      // device with the same credentials" work without any server.
+      isNewAccount=true;const dataKey='FM_D_'+uHash;
       accts[uHash]={pwHash,dataKey,displayName:uRaw,createdAt:new Date().toISOString()};saveAccounts(accts);
       currentDataKey=dataKey;currentUsername=uRaw;
-      if(legacy){localStorage.setItem(dataKey,legacy);localStorage.removeItem('fm_v3');}
     }
     SK=currentDataKey;DB=initDB();
     const rememberEl=document.getElementById('l-remember'),remember=rememberEl&&rememberEl.checked;
-    const sessData=btoa(JSON.stringify({dk:currentDataKey,un:currentUsername,ph:pwHash}));
+    const sessData=btoa(JSON.stringify({dk:currentDataKey,un:currentUsername}));
     sessionStorage.setItem('fm_sess',sessData);
     if(remember)localStorage.setItem('fm_remember',sessData);else localStorage.removeItem('fm_remember');
     btn.textContent='Sign In / Create Account';btn.disabled=false;
     document.getElementById('login-screen').style.display='none';
     document.getElementById('user-name-display').textContent=currentUsername;
-    const hasData=DB.transactions.length>0||DB.btcEntries.length>0||(DB.assets&&DB.assets.length>0)||DB.portfolio.length>0;
+    const hasData=DB.transactions.length>0||(DB.customInvestments&&DB.customInvestments.length>0)||(DB.assets&&DB.assets.length>0)||DB.portfolio.length>0;
     if((isNewAccount||!DB.fireSettings||!DB.fireSettings.setupDone)&&!hasData){showSetup();}
     else{
       if(!DB.fireSettings||!DB.fireSettings.setupDone){
-        DB.fireSettings={monthlyExpense:16000,inflationRate:10,currentAge:23,retireAge:40,setupDone:true};save();
+        DB.fireSettings={monthlyExpense:20000,inflationRate:10,currentAge:25,retireAge:65,setupDone:true};save();
       }
       document.getElementById('app').style.display='flex';startApp();
     }
   }catch(e){err.textContent='Login error. Try again.';btn.textContent='Sign In / Create Account';btn.disabled=false;}
 }
 function doLogout(){
-  // Stop all background tasks first — prevents crashes on white screen
-  if(priceInterval){clearInterval(priceInterval);priceInterval=null;}
   if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
   sessionStorage.removeItem('fm_sess');localStorage.removeItem('fm_remember');
-  if(currentDataKey)localStorage.removeItem('FM_PH_'+currentDataKey);
-  currentDataKey=null;currentUsername='';currentPwHash='';
-  // Reset DB to safe empty state so no residual async render crashes
+  currentDataKey=null;currentUsername='';
   DB=initDB();SK='fm_v3';
   document.getElementById('app').style.display='none';
   document.getElementById('setup-screen').style.display='none';
@@ -445,35 +498,47 @@ function doLogout(){
   document.getElementById('l-pass').value='';
   document.getElementById('login-err').textContent='';
   const hint=document.getElementById('login-hint');if(hint)hint.textContent='';
-  updateSyncBadge('off');
 }
 
 // ─────────────────────────────────────────────────────
-// SETUP / FIRE ONBOARDING
+// SECTION: SETUP / FIRE ONBOARDING
+// First-run wizard that computes DB.fireSettings. No
+// values are pre-filled with "recommended" personal
+// numbers — the person enters their own.
 // ─────────────────────────────────────────────────────
 function showSetup(){
   const s=DB.fireSettings||{};
   const el=document.getElementById('setup-screen');el.style.display='block';el.scrollTop=0;
-  document.getElementById('s-age').value=s.currentAge||23;
-  document.getElementById('s-ret-age').value=s.retireAge||40;
-  document.getElementById('s-expense').value=s.monthlyExpense||16000;
+  document.getElementById('s-age').value=s.currentAge||'';
+  document.getElementById('s-ret-age').value=s.retireAge||'';
+  document.getElementById('s-life-exp').value=s.lifeExpectancy||'';
+  document.getElementById('s-expense').value=s.monthlyExpense||'';
   document.getElementById('s-infl').value=s.inflationRate||10;
   calcFireSetup();
 }
 function calcFireSetup(){
-  const age=parseInt(document.getElementById('s-age').value)||23;
-  const retAge=parseInt(document.getElementById('s-ret-age').value)||40;
-  const exp=parseFloat(document.getElementById('s-expense').value)||16000;
+  const ageRaw=document.getElementById('s-age').value,retRaw=document.getElementById('s-ret-age').value,expRaw=document.getElementById('s-expense').value,lifeExpRaw=document.getElementById('s-life-exp').value;
+  const age=parseInt(ageRaw)||0,retAge=parseInt(retRaw)||0,exp=parseFloat(expRaw)||0,lifeExp=parseInt(lifeExpRaw)||0;
   const inflRaw=parseFloat(document.getElementById('s-infl').value)||10;
   const infl=Math.max(1,inflRaw);
+  const warn=document.getElementById('s-infl-warn');if(warn)warn.style.display=inflRaw<10?'block':'none';
+  const yearsEl=document.getElementById('s-years-text');
+  if(!age||!retAge||retAge<=age||!exp){
+    if(yearsEl)yearsEl.textContent='Fill in your age, target age, and expenses';
+    const numEl=document.getElementById('setup-fire-num');if(numEl)numEl.textContent='฿—';
+    const detailEl=document.getElementById('setup-fire-details');if(detailEl)detailEl.textContent='Fill in your details above';
+    const formulaEl=document.getElementById('setup-fire-formula');if(formulaEl)formulaEl.textContent='';
+    const scEl=document.getElementById('setup-scenarios');if(scEl)scEl.innerHTML='';
+    return;
+  }
   const years=Math.max(1,retAge-age);
   const expAtRetire=exp*Math.pow(1+infl/100,years);
   const fireNum=expAtRetire*12*25;
   const numEl=document.getElementById('setup-fire-num');if(numEl)numEl.textContent='฿'+Math.round(fireNum).toLocaleString();
-  const detailEl=document.getElementById('setup-fire-details');if(detailEl)detailEl.textContent='฿'+Math.round(expAtRetire).toLocaleString()+'/mo at retirement · '+years+' years to go';
+  const retirementSpan=(lifeExp>retAge)?' · retirement funded to age '+lifeExp+' ('+(lifeExp-retAge)+' years)':'';
+  const detailEl=document.getElementById('setup-fire-details');if(detailEl)detailEl.textContent='฿'+Math.round(expAtRetire).toLocaleString()+'/mo at retirement · '+years+' years to go'+retirementSpan;
   const formulaEl=document.getElementById('setup-fire-formula');if(formulaEl)formulaEl.textContent='฿'+exp.toLocaleString()+' × '+infl+'%^'+years+' × 12 × 25 = ฿'+(fireNum/1e6).toFixed(2)+'M';
-  const yearsEl=document.getElementById('s-years-text');if(yearsEl)yearsEl.textContent=years+' years';
-  const warn=document.getElementById('s-infl-warn');if(warn)warn.style.display=inflRaw<10?'block':'none';
+  if(yearsEl)yearsEl.textContent=years+' years to reach your goal'+(lifeExp>retAge?' · '+(lifeExp-retAge)+' years planned in retirement':'');
   const scEl=document.getElementById('setup-scenarios');
   if(scEl){
     const scenarios=[[Math.max(age+1,retAge-5),'Early',infl+5],[retAge,'Base',infl],[retAge+5,'Relaxed',Math.max(1,infl-3)]];
@@ -485,12 +550,15 @@ function calcFireSetup(){
   }
 }
 function saveSetup(){
-  const age=parseInt(document.getElementById('s-age').value)||23;
-  const retAge=parseInt(document.getElementById('s-ret-age').value)||40;
-  const exp=parseFloat(document.getElementById('s-expense').value)||16000;
+  const age=parseInt(document.getElementById('s-age').value)||0;
+  const retAge=parseInt(document.getElementById('s-ret-age').value)||0;
+  const lifeExp=parseInt(document.getElementById('s-life-exp').value)||0;
+  const exp=parseFloat(document.getElementById('s-expense').value)||0;
   const infl=Math.max(1,parseFloat(document.getElementById('s-infl').value)||10);
+  if(!age||!retAge||!exp)return toast('Fill in age, target age, and expenses','err');
   if(retAge<=age)return toast('Retire age must be greater than current age','err');
-  DB.fireSettings={monthlyExpense:exp,inflationRate:infl,currentAge:age,retireAge:retAge,setupDone:true};
+  if(lifeExp&&lifeExp<=retAge)return toast('Life expectancy should be after your retire age','err');
+  DB.fireSettings={monthlyExpense:exp,inflationRate:infl,currentAge:age,retireAge:retAge,lifeExpectancy:lifeExp||0,setupDone:true};
   if(!DB.emergencySettings)DB.emergencySettings={expense:exp,months:6};
   else DB.emergencySettings.expense=exp;
   save();
@@ -499,7 +567,7 @@ function saveSetup(){
   startApp();
 }
 function skipSetup(){
-  if(!DB.fireSettings)DB.fireSettings={monthlyExpense:16000,inflationRate:10,currentAge:23,retireAge:40,setupDone:true};
+  if(!DB.fireSettings)DB.fireSettings={monthlyExpense:20000,inflationRate:10,currentAge:25,retireAge:65,lifeExpectancy:0,setupDone:true};
   else DB.fireSettings.setupDone=true;
   save();
   document.getElementById('setup-screen').style.display='none';
@@ -507,30 +575,13 @@ function skipSetup(){
   startApp();
 }
 
-async function restoreFromSetup(){
-  const statusEl=document.getElementById('setup-sync-status');
-  if(!_fbConfigured()){
-    if(statusEl){statusEl.textContent='Cloud sync not active — log out and log back in first.';statusEl.style.color='#dc2626';}return;
-  }
-  if(statusEl){statusEl.textContent='Pulling from cloud…';statusEl.style.color='#F7931A';}
-  const ok=await cloudPull();
-  if(ok){
-    document.getElementById('setup-screen').style.display='none';
-    document.getElementById('app').style.display='flex';
-    startApp();
-    toast('Data restored ✓','ok');
-  } else {
-    if(statusEl){statusEl.textContent='No cloud data found. Fill in your details above.';statusEl.style.color='#888';}
-  }
-}
-
 // ─────────────────────────────────────────────────────
-// FIRE TARGET (reads DB.fireSettings — fully dynamic)
+// SECTION: FIRE TARGET (reads DB.fireSettings — fully dynamic)
 // ─────────────────────────────────────────────────────
 function getFireTarget(){
-  const s=DB.fireSettings||{monthlyExpense:16000,inflationRate:10,currentAge:23,retireAge:40};
-  const years=Math.max(1,(s.retireAge||40)-(s.currentAge||23));
-  return (s.monthlyExpense||16000)*Math.pow(1+(s.inflationRate||10)/100,years)*12*25;
+  const s=DB.fireSettings||{monthlyExpense:20000,inflationRate:10,currentAge:25,retireAge:65};
+  const years=Math.max(1,(s.retireAge||65)-(s.currentAge||25));
+  return (s.monthlyExpense||20000)*Math.pow(1+(s.inflationRate||10)/100,years)*12*25;
 }
 
 // ─────────────────────────────────────────────────────
@@ -544,20 +595,43 @@ function toggleHide(){
 }
 
 // ─────────────────────────────────────────────────────
-// CONSTANTS
+// SECTION: CONSTANTS
+// Edit these arrays to change default categories, seed
+// goals, budget templates, etc. Nothing here is fetched
+// from a server — it's all baked into this file.
 // ─────────────────────────────────────────────────────
-const PORTFOLIO_CHAIN=[{id:'pc1',name:'Portfolio ฿100k',target:100000,note:'First milestone'},{id:'pc2',name:'Portfolio ฿500k',target:500000,note:'Building momentum'},{id:'pc3',name:'Portfolio ฿1M',target:1000000,note:'Million baht club'},{id:'pc4',name:'Portfolio ฿5M',target:5000000,note:'Base FIRE number'}];
-const DEFAULT_GOALS=[{id:'g_emg',name:'Emergency Fund',target:90000,cat:'emergency',note:'6 months'},{id:'g_btc',name:'Bitcoin ฿1M value',target:1000000,cat:'bitcoin',note:'BTC milestone'},{id:'g_sal',name:'Salary ฿40k/mo',target:40000,cat:'income',note:'Income growth'},{id:'g_re',name:'Real Estate Fund ฿500k',target:500000,cat:'realestate',note:'BTC to property'}];
-const DEFAULT_BUDGET=[{id:'b1',cat:'Survival',item:'Condo Rent',alloc:0},{id:'b2',cat:'Survival',item:'Food (อาหาร)',alloc:0},{id:'b3',cat:'Survival',item:'Electricity & Water',alloc:0},{id:'b4',cat:'Survival',item:'Household Essentials',alloc:0},{id:'b5',cat:'Survival',item:'Transportation',alloc:0},{id:'b6',cat:'Family Shield',item:'Family',alloc:0},{id:'b7',cat:'Business/AI',item:'Business/AI',alloc:0},{id:'b8',cat:'Wealth & Security',item:'Emergency Fund',alloc:0},{id:'b9',cat:'Wealth & Security',item:'Personal Spending',alloc:0},{id:'b10',cat:'Investing',item:'Bitcoin DCA',alloc:0}];
+// Portfolio milestone goals (cat:'portfolio') are just regular goals
+// seeded by default — like every other goal, they can be edited or
+// deleted from the Goals page. IMPORTANT: they all share the exact
+// same `name` ("Portfolio Milestone") on purpose — goals with a
+// matching name are grouped into one chain and shown ONE AT A TIME,
+// lowest target first, advancing to the next once the current one is
+// marked done (see getGoalGroups()/gGroupView() in the Goals page).
+const DEFAULT_GOALS=[
+  {id:'g_emg',name:'Emergency Fund',target:100000,cat:'emergency',note:'Safety net'},
+  {id:'pc1',name:'Portfolio Milestone',target:100000,cat:'portfolio',note:'First milestone'},
+  {id:'pc2',name:'Portfolio Milestone',target:500000,cat:'portfolio',note:'Building momentum'},
+  {id:'pc3',name:'Portfolio Milestone',target:1000000,cat:'portfolio',note:'Million baht club'},
+  {id:'pc4',name:'Portfolio Milestone',target:5000000,cat:'portfolio',note:'Base FIRE number'},
+  {id:'g_inc',name:'Income Goal',target:50000,cat:'income',note:'Monthly income target'},
+  {id:'g_custom',name:'Big Goal',target:500000,cat:'custom',note:'Rename me — e.g. house down payment'}
+];
+const DEFAULT_BUDGET=[{id:'b1',cat:'Survival',item:'Rent',alloc:0},{id:'b2',cat:'Survival',item:'Food (อาหาร)',alloc:0},{id:'b3',cat:'Survival',item:'Electricity & Water',alloc:0},{id:'b4',cat:'Survival',item:'Household Essentials',alloc:0},{id:'b5',cat:'Survival',item:'Transportation',alloc:0},{id:'b6',cat:'Family Shield',item:'Family',alloc:0},{id:'b7',cat:'Wealth & Security',item:'Emergency Fund',alloc:0},{id:'b8',cat:'Wealth & Security',item:'Personal Spending',alloc:0},{id:'b9',cat:'Investing',item:'Investments',alloc:0}];
 const CAT_MAP={'อาหาร':'Food','เดินทาง, รถ':'Transport','ของใช้จำเป็น':'Household','บ้าน, สาธารณูปโภค':'Home/Util','ออมเงิน, ลงทุน':'Invest/Save','ช้อปปิ้ง':'Shopping','ครอบครัว':'Family','ธุรกิจ/AI':'Business','กองทุนฉุกเฉิน':'Emergency','อื่นๆ':'Other','ความบันเทิง':'Entertain'};
 const ALL_CATS=['อาหาร','เดินทาง, รถ','ของใช้จำเป็น','บ้าน, สาธารณูปโภค','ออมเงิน, ลงทุน','ช้อปปิ้ง','ครอบครัว','ธุรกิจ/AI','กองทุนฉุกเฉิน','ความบันเทิง','อื่นๆ'];
-const CAT_COLORS={emergency:'#3b82f6',portfolio:'#F7931A',bitcoin:'#F7931A',income:'#10b981',realestate:'#8b5cf6',custom:'#f43f5e'};
-const ASSET_CATS=['Cash / Wallet','Savings Account','Emergency Fund','Bitcoin (THB value)','Gold','RMF / SSF','Real Estate Fund','Property','Vehicle','Other'];
+const CAT_COLORS={emergency:'#3b82f6',portfolio:'#F7931A',income:'#10b981',realestate:'#8b5cf6',custom:'#f43f5e'};
+const ASSET_CATS=['Cash / Wallet','Savings Account','Emergency Fund','Investment (custom)','Gold','RMF / SSF','Real Estate Fund','Property','Vehicle','Other'];
 const LIAB_CATS=['Credit Card','Personal Loan','Student Loan','Mortgage','Other Debt'];
-const INV_COLORS=['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#84cc16','#f97316'];
+const INV_COLORS=['#F7931A','#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#84cc16'];
 
 // ─────────────────────────────────────────────────────
-// DATABASE / LOCALSTORAGE
+// SECTION: DATABASE / LOCALSTORAGE
+// `DB` is the single in-memory source of truth for the
+// signed-in account; `save()` persists it (debounced) to
+// localStorage under key `SK`. initDB() only ever fills in
+// MISSING fields with defaults — it never overwrites data
+// that's already there, so upgrading this file's code is
+// always safe for existing accounts.
 // ─────────────────────────────────────────────────────
 function _arr(v,def){return Array.isArray(v)?v:(def||[]);}
 function _obj(v,def){return(v&&typeof v==='object'&&!Array.isArray(v))?v:(def||{});}
@@ -566,45 +640,39 @@ function initDB(){
   const s=localStorage.getItem(SK);
   if(s){try{
     const d=JSON.parse(s);
-    // Firebase converts empty arrays to null — sanitize every field
     d.transactions=_arr(d.transactions);
     d.income=_arr(d.income);
-    d.btcEntries=_arr(d.btcEntries);
     d.portfolio=_arr(d.portfolio);
     d.assets=_arr(d.assets);
     d.goals=_arr(d.goals,DEFAULT_GOALS);
     d.customInvestments=_arr(d.customInvestments);
     d.creditCards=_arr(d.creditCards);
-    d.incomeSources=_arr(d.incomeSources,['Salary','Side / Amway','Freelance','Bitcoin gains','Other']);
+    d.incomeSources=_arr(d.incomeSources,['Salary','Side income','Freelance','Investment gains','Other']);
     d.budget=_arr(d.budget,DEFAULT_BUDGET);
     d.goalHits=_obj(d.goalHits);
-    d.chainHits=_obj(d.chainHits);
     d.budgetByMonth=_obj(d.budgetByMonth);
     d.budgetPresets=_obj(d.budgetPresets);
     d.notes=_obj(d.notes);
     d.tax=_obj(d.tax,{rmfManual:0,lifeIns:0,healthIns:0});
     d.emergencySettings=_obj(d.emergencySettings,{expense:15000,months:6});
-    if(d.dcaAmount==null)d.dcaAmount=108;
     if(d.fireSettings===undefined)d.fireSettings=null;
     d.portfolio.forEach(p=>{if(p.realEstate===undefined)p.realEstate=0;});
     d.customInvestments.forEach(iv=>{if(!iv.link)iv.link='';if(iv.dcaAmount==null)iv.dcaAmount=0;if(iv.pricePerUnit==null)iv.pricePerUnit=0;if(!Array.isArray(iv.entries))iv.entries=[];});
     return d;
   }catch{}}
-  return{transactions:[],income:[],budget:DEFAULT_BUDGET,budgetByMonth:{},budgetPresets:{},notes:{},creditCards:[],incomeSources:['Salary','Side / Amway','Freelance','Bitcoin gains','Other'],btcEntries:[],customInvestments:[],portfolio:[],assets:[],goals:DEFAULT_GOALS,goalHits:{},chainHits:{},tax:{rmfManual:0,lifeIns:0,healthIns:0},emergencySettings:{expense:15000,months:6},dcaAmount:108,fireSettings:null};
+  return{transactions:[],income:[],budget:DEFAULT_BUDGET,budgetByMonth:{},budgetPresets:{},notes:{},creditCards:[],incomeSources:['Salary','Side income','Freelance','Investment gains','Other'],customInvestments:[],portfolio:[],assets:[],goals:DEFAULT_GOALS,goalHits:{},tax:{rmfManual:0,lifeIns:0,healthIns:0},emergencySettings:{expense:15000,months:6},fireSettings:null};
 }
 let DB=initDB();
 let activeMonth=new Date().toISOString().slice(0,7);
-let activeChart=null,activeChart2=null,btcPrice=0,priceInterval=null;
+let activeChart=null,activeChart2=null;
 
 // ─────────────────────────────────────────────────────
-// HELPERS / FORMATTERS
+// SECTION: HELPERS / FORMATTERS
 // ─────────────────────────────────────────────────────
 function uid(){return'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 const H='฿ •••';
 function fmt(n,d=0){if(hideAmounts)return H;n=parseFloat(n)||0;if(n>=1e6)return'฿'+(n/1e6).toFixed(2)+'M';if(n>=1000)return'฿'+(n/1000).toFixed(d)+'k';return'฿'+n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
 function fmtFull(n){if(hideAmounts)return H;return'฿'+Math.round(parseFloat(n)||0).toLocaleString();}
-function fmtSat(s){if(hideAmounts)return'••• sat';s=parseInt(s)||0;if(s>=1e8)return(s/1e8).toFixed(8)+' BTC';if(s>=1e6)return(s/1e6).toFixed(4)+'M sat';if(s>=1000)return(s/1000).toFixed(2)+'k sat';return s.toLocaleString()+' sat';}
-function fmtPrice(n){if(hideAmounts)return'฿ •••';return'฿'+Math.round(parseFloat(n)||0).toLocaleString();}
 function monthLabel(m){if(!m)return'';const[y,mo]=m.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+' '+y;}
 function txM(m){return(DB.transactions||[]).filter(t=>t.date.startsWith(m));}
 function incM(m){return(DB.income||[]).filter(i=>i.month===m);}
@@ -612,77 +680,32 @@ function spentM(m){return txM(m).filter(t=>t.cat!=='ออมเงิน, ล�
 function investM(m){return txM(m).filter(t=>t.cat==='ออมเงิน, ลงทุน').reduce((s,t)=>s+(t.amt||0),0);}
 function incTotalM(m){return incM(m).reduce((s,i)=>s+(i.amt||0),0);}
 function yearIncome(y){return(DB.income||[]).filter(i=>i.month.startsWith(y)).reduce((s,i)=>s+(i.amt||0),0);}
-function totalSat(){return(DB.btcEntries||[]).reduce((s,e)=>s+(parseInt(e.sat)||0),0);}
-function totalBTCInvested(){return(DB.btcEntries||[]).reduce((s,e)=>s+(parseFloat(e.thb)||0),0);}
-function btcValueTHB(){return btcPrice>0?(totalSat()/1e8)*btcPrice:0;}
+// Value of all custom investments: uses live pricePerUnit x units if set, else falls back to amount invested.
+function investmentsValue(){return(DB.customInvestments||[]).reduce((s,iv)=>{const totU=iv.entries.reduce((a,e)=>a+(parseFloat(e.units)||0),0);const tot=iv.entries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0);const cur=iv.pricePerUnit>0&&totU>0?iv.pricePerUnit*totU:tot;return s+cur;},0);}
+function investmentsInvested(){return(DB.customInvestments||[]).reduce((s,iv)=>s+iv.entries.reduce((a,e)=>a+(parseFloat(e.amount)||0),0),0);}
 function assetSum(cat){return(DB.assets||[]).filter(a=>a.type==='asset'&&a.category===cat).reduce((s,a)=>s+(parseFloat(a.value)||0),0);}
 function totalAssets(){return(DB.assets||[]).filter(a=>a.type==='asset').reduce((s,a)=>s+(parseFloat(a.value)||0),0);}
 function totalLiab(){return(DB.assets||[]).filter(a=>a.type==='liability').reduce((s,a)=>s+(parseFloat(a.value)||0),0);}
-function getFireData(){const latest=DB.portfolio.at(-1);return{emg:assetSum('Emergency Fund')||parseFloat(latest?.emergency)||0,gold:assetSum('Gold')||parseFloat(latest?.gold)||0,rmf:assetSum('RMF / SSF')||parseFloat(latest?.rmf)||0,re:assetSum('Real Estate Fund')||parseFloat(latest?.realEstate)||0,btcVal:btcPrice>0?btcValueTHB():(assetSum('Bitcoin (THB value)')||parseFloat(latest?.bitcoin)||0)};}
+function getFireData(){const latest=DB.portfolio.at(-1);return{emg:assetSum('Emergency Fund')||parseFloat(latest?.emergency)||0,gold:assetSum('Gold')||parseFloat(latest?.gold)||0,rmf:assetSum('RMF / SSF')||parseFloat(latest?.rmf)||0,re:assetSum('Real Estate Fund')||parseFloat(latest?.realEstate)||0,invVal:investmentsValue()};}
 function portfolioTotal(){
-  if(!DB.assets||DB.assets.length===0){const latest=DB.portfolio.at(-1);if(!latest)return 0;const bv=btcPrice>0?btcValueTHB():(parseFloat(latest.bitcoin)||0);return(parseFloat(latest.emergency)||0)+bv+(parseFloat(latest.gold)||0)+(parseFloat(latest.rmf)||0)+(parseFloat(latest.realEstate)||0);}
-  const ta=totalAssets(),tl=totalLiab(),btcS=assetSum('Bitcoin (THB value)'),btcL=btcPrice>0?btcValueTHB():btcS;return ta-tl+(btcL-btcS);
+  if(!DB.assets||DB.assets.length===0){const latest=DB.portfolio.at(-1);if(!latest)return investmentsValue();return investmentsValue()+(parseFloat(latest.emergency)||0)+(parseFloat(latest.gold)||0)+(parseFloat(latest.rmf)||0)+(parseFloat(latest.realEstate)||0);}
+  return totalAssets()-totalLiab()+investmentsValue();
 }
 let saveTimer=null;
-
-// ─────────────────────────────────────────────────────
-// BTC → NET WORTH AUTO-SYNC
-// Keeps "Bitcoin (THB value)" asset in sync with live
-// price × satoshi holdings before every save/persist.
-// ─────────────────────────────────────────────────────
-function syncBTCToAssets(){
-  if(!DB.assets)DB.assets=[];
-  const sat=totalSat();if(sat<=0)return;
-  const val=btcPrice>0?Math.round(btcValueTHB()):0;if(val<=0)return;
-  const existing=DB.assets.find(a=>a.type==='asset'&&a.category==='Bitcoin (THB value)');
-  if(existing){if(existing.value===val)return;existing.value=val;}
-  else DB.assets.push({id:uid(),type:'asset',category:'Bitcoin (THB value)',name:'Bitcoin',value:val});
-}
-
 function save(){
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
-    syncBTCToAssets();
     localStorage.setItem(SK,JSON.stringify(DB));
     const el=document.getElementById('last-saved');if(el)el.textContent=new Date().toLocaleTimeString();
-    // cloudPush has its own 5s debounce internally — safe to call on every save
-    cloudPush();
-  },600);
+    // NOTE: this is the local-only save path. If you want to add cloud
+    // sync back in, this is the spot to also push DB somewhere.
+  },400);
 }
 
 // ─────────────────────────────────────────────────────
-// BTC LIVE PRICE (CoinGecko — refreshes every 60s)
-// After price loads, syncs BTC value to Net Worth asset
-// so dashboard, goals, and FIRE target all reflect live.
+// SECTION: ROUTER / NAVIGATION
 // ─────────────────────────────────────────────────────
-async function fetchBTCPrice(){
-  const badge=document.getElementById('live-badge');if(badge)badge.style.background='#fef9c3';
-  try{
-    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb',{});
-    const d=await r.json();
-    if(d.bitcoin?.thb){
-      btcPrice=d.bitcoin.thb;
-      if(badge){badge.style.background='#dcfce7';badge.title='BTC: '+fmtPrice(btcPrice);}
-      // Sync BTC value to Net Worth silently (no Gist push — price refreshes every 60s)
-      if(totalSat()>0){
-        syncBTCToAssets();
-        localStorage.setItem(SK,JSON.stringify(DB));
-      }
-      const active=document.querySelector('.nav-item.active')?.dataset.page;
-      if(active==='dashboard')renderDashboard();
-      if(active==='bitcoin')renderInvesting();
-      if(active==='networth')renderNetworth();
-      return;
-    }
-  }catch{}
-  if(badge)badge.style.background='#fee2e2';
-}
-function startPriceRefresh(){fetchBTCPrice();if(priceInterval)clearInterval(priceInterval);priceInterval=setInterval(fetchBTCPrice,60000);}
-
-// ─────────────────────────────────────────────────────
-// ROUTER / NAVIGATION
-// ─────────────────────────────────────────────────────
-const TITLES={dashboard:'Dashboard',monthly:'Monthly Overview',bitcoin:'Investing',networth:'Net Worth',tax:'Tax Planner',goals:'Goals',portfolio:'FIRE Overview'};
+const TITLES={dashboard:'Dashboard',monthly:'Monthly Overview',investing:'Investing',networth:'Net Worth',tax:'Tax Planner',goals:'Goals'};
 function navigate(page){
   currentPage=page;
   if(activeChart)try{activeChart.destroy();activeChart=null;}catch{}
@@ -690,56 +713,80 @@ function navigate(page){
   document.querySelectorAll('.nav-item[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
   document.querySelectorAll('.bnav-item[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
   document.getElementById('page-title').textContent=TITLES[page]||page;
-  const pages={dashboard:renderDashboard,monthly:renderMonthly,bitcoin:renderInvesting,networth:renderNetworth,tax:renderTax,goals:renderGoals,portfolio:renderPortfolio};
+  const pages={dashboard:renderDashboard,monthly:renderMonthly,investing:renderInvesting,networth:renderNetworth,tax:renderTax,goals:renderGoals};
   if(pages[page])pages[page]();
   document.getElementById('content').scrollTop=0;
 }
 document.querySelectorAll('.nav-item[data-page],.bnav-item[data-page]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.page)));
-function toggleMore(){document.getElementById('more-overlay').classList.toggle('open');document.getElementById('more-sheet').classList.toggle('open');}
 
 // ─────────────────────────────────────────────────────
-// PAGE: DASHBOARD
+// PAGE: DASHBOARD  (merged overview + FIRE tracker)
+// Shows: total portfolio + FIRE progress, next milestone,
+// asset breakdown with a pie chart, this month summary,
+// portfolio growth line chart, snapshot history, and an
+// editable FIRE Calculator Settings panel.
 // ─────────────────────────────────────────────────────
+let fireSettingsOpen=false;
+function toggleFireSettings(){fireSettingsOpen=!fireSettingsOpen;renderDashboard();}
+function saveFireSettings(){
+  const age=parseInt(document.getElementById('fs-age').value)||0,retAge=parseInt(document.getElementById('fs-ret-age').value)||0,lifeExp=parseInt(document.getElementById('fs-life-exp').value)||0,exp=parseFloat(document.getElementById('fs-expense').value)||0,infl=Math.max(1,parseFloat(document.getElementById('fs-infl').value)||10);
+  if(!age||!retAge||!exp)return toast('Fill in all fields','err');
+  if(retAge<=age)return toast('Retire age must be greater than current age','err');
+  if(lifeExp&&lifeExp<=retAge)return toast('Life expectancy should be after your retire age','err');
+  DB.fireSettings={monthlyExpense:exp,inflationRate:infl,currentAge:age,retireAge:retAge,lifeExpectancy:lifeExp||0,setupDone:true};save();fireSettingsOpen=false;renderDashboard();toast('FIRE settings updated','ok');
+}
 function renderDashboard(){
-  const{emg,gold,rmf,re,btcVal}=getFireData();
-  const sat=totalSat(),btcInv=totalBTCInvested(),pnl=btcVal-btcInv,total=portfolioTotal();
+  const{emg,gold,rmf,re,invVal}=getFireData();
+  const total=portfolioTotal();
   const fireTarget=getFireTarget();
-  const fs=DB.fireSettings||{retireAge:40,inflationRate:10};
-  const nextM=PORTFOLIO_CHAIN.find(g=>!(DB.chainHits||{})[g.id]);
+  const fs=DB.fireSettings||{monthlyExpense:20000,inflationRate:10,currentAge:25,retireAge:65};
+  const years=Math.max(1,(fs.retireAge||65)-(fs.currentAge||25));
+  const expAtRetire=(fs.monthlyExpense||20000)*Math.pow(1+(fs.inflationRate||10)/100,years);
+  const snaps=[...DB.portfolio].sort((a,b)=>a.date.localeCompare(b.date));
+  const portfolioGoals=(DB.goals||[]).filter(g=>g.cat==='portfolio').sort((a,b)=>a.target-b.target);
+  const nextM=portfolioGoals.find(g=>!(DB.goalHits||{})[g.id]);
   const es=DB.emergencySettings||{expense:15000,months:6};const emgTarget=es.expense*es.months;
   let html='';
-  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:10px">';
-  html+='<div><div style="font-size:30px;font-weight:800;line-height:1">'+fmt(total)+'</div><div style="font-size:12px;color:#aaa;margin-top:3px">Total Portfolio'+(btcPrice>0?' <span style="color:#22c55e">● live</span>':'')+'</div></div>';
-  html+='<div style="text-align:right"><div style="font-size:11px;color:#aaa;margin-bottom:2px">FIRE at '+(fs.retireAge||40)+' ('+(fs.inflationRate||10)+'% infl.)</div>';
-  html+='<div style="font-size:15px;font-weight:700;color:#F7931A">'+(hideAmounts?'•••%':((total/fireTarget)*100).toFixed(2)+'%')+'</div>';
-  html+='<div class="progress" style="width:180px;margin-top:3px"><div class="progress-fill" style="width:'+(hideAmounts?0:Math.min(total/fireTarget*100,100))+'%;background:#F7931A"></div></div>';
-  html+='<div style="font-size:11px;color:#aaa;margin-top:2px">'+fmt(fireTarget-total)+' left &middot; target '+fmt(fireTarget)+'</div></div></div>';
+  html+='<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:12px">';
+  html+='<div><div style="font-size:30px;font-weight:800;line-height:1">'+fmt(total)+'</div><div style="font-size:12px;color:#aaa;margin-top:3px">Total Portfolio</div></div>';
+  html+='<div style="text-align:right"><div style="font-size:11px;color:#aaa;margin-bottom:2px">FIRE at '+(fs.retireAge||65)+' ('+(fs.inflationRate||10)+'% infl.)</div>';
+  html+='<div style="font-size:22px;font-weight:800;color:#F7931A">'+(hideAmounts?'•••%':((total/fireTarget)*100).toFixed(2)+'%')+'</div>';
+  html+='<div style="font-size:12px;color:#aaa">'+fmt(fireTarget-total)+' remaining · target '+fmt(fireTarget)+'</div></div></div>';
+  html+='<div class="progress" style="height:12px;border-radius:99px"><div class="progress-fill" style="width:'+(hideAmounts?0:Math.min(total/fireTarget*100,100))+'%;background:linear-gradient(90deg,#F7931A,#f59e0b);height:12px;border-radius:99px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-top:4px"><span>฿0</span><span>'+fmtFull(fireTarget)+' target</span></div></div>';
   if(nextM){
     html+='<div class="next-goal-bar"><div style="font-size:10px;color:#c2410c;font-weight:700;text-transform:uppercase;margin-bottom:6px">🎯 Next — '+nextM.name+'</div>';
     html+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:120px"><div class="progress" style="height:9px"><div class="progress-fill" style="width:'+(hideAmounts?0:Math.min(total/nextM.target*100,100))+'%;background:#F7931A;height:9px"></div></div></div><div style="font-size:13px;font-weight:700;color:#c2410c">'+fmt(nextM.target-total)+' away</div></div></div>';
-  } else {html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-weight:700;color:#166534">🎉 All milestones reached!</div>';}
-  html+='<div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Portfolio Breakdown</div><div style="font-size:11px;color:#aaa">'+(btcPrice>0?'BTC: '+fmtPrice(btcPrice):'Click ● LIVE')+'</div></div>';
-  html+='<div class="pa-row"><div class="pa-icon" style="background:#fff7ed">₿</div><div class="pa-main"><div class="pa-name">Bitcoin</div><div class="pa-sub">'+(hideAmounts?'•••':(sat>0?fmtSat(sat):'No entries'))+'</div></div><div class="pa-val"><div class="pa-amount" style="color:#F7931A">'+fmtFull(btcVal)+'</div>';
-  if(!hideAmounts&&btcVal>0&&btcInv>0)html+='<div style="font-size:11px;color:'+(pnl>=0?'#16a34a':'#dc2626')+'">'+(pnl>=0?'+':'')+fmtFull(pnl)+' PnL</div>';
-  html+='</div></div>';
-  html+='<div class="pa-row"><div class="pa-icon" style="background:#eff6ff">🏦</div><div class="pa-main"><div class="pa-name">Emergency Fund</div><div class="pa-sub">'+(hideAmounts?'•••':((emg/emgTarget*100).toFixed(0)+'% of '+fmtFull(emgTarget)))+'</div></div><div class="pa-val"><div class="pa-amount" style="color:#3b82f6">'+fmtFull(emg)+'</div></div></div>';
-  if(gold>0)html+='<div class="pa-row"><div class="pa-icon" style="background:#fefce8">🥇</div><div class="pa-main"><div class="pa-name">Gold</div></div><div class="pa-val"><div class="pa-amount" style="color:#ca8a04">'+fmtFull(gold)+'</div></div></div>';
-  if(rmf>0)html+='<div class="pa-row"><div class="pa-icon" style="background:#f3f4f6">📋</div><div class="pa-main"><div class="pa-name">RMF</div></div><div class="pa-val"><div class="pa-amount" style="color:#6b7280">'+fmtFull(rmf)+'</div></div></div>';
-  if(re>0)html+='<div class="pa-row"><div class="pa-icon" style="background:#f5f3ff">🏠</div><div class="pa-main"><div class="pa-name">Real Estate Fund</div></div><div class="pa-val"><div class="pa-amount" style="color:#8b5cf6">'+fmtFull(re)+'</div></div></div>';
-  if(total===0)html+='<div style="text-align:center;padding:14px 0;color:#bbb;font-size:13px">No data. <a href="#" onclick="navigate(\'networth\')" style="color:#F7931A">Update Net Worth →</a></div>';
+  } else if(portfolioGoals.length>0){html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-weight:700;color:#166534">🎉 All portfolio milestones reached!</div>';}
+  const retirementSpanSummary=(fs.lifeExpectancy&&fs.lifeExpectancy>fs.retireAge)?' · living to '+fs.lifeExpectancy+' ('+(fs.lifeExpectancy-fs.retireAge)+'y retirement)':'';
+  html+='<div class="card" style="margin-bottom:12px;border-color:'+(fireSettingsOpen?'#F7931A':'#e8e6e0')+'"><div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleFireSettings()"><div><div class="card-title" style="margin:0">⚙️ FIRE Calculator Settings</div><div style="font-size:11px;color:#aaa;margin-top:2px">Age '+(fs.currentAge||25)+' → '+(fs.retireAge||65)+' · ฿'+Math.round(fs.monthlyExpense||20000).toLocaleString()+'/mo · '+(fs.inflationRate||10)+'% infl'+retirementSpanSummary+' · target '+fmt(fireTarget)+'</div></div><div style="font-size:11px;color:#F7931A;font-weight:600">'+(fireSettingsOpen?'▲ Close':'▼ Edit')+'</div></div>';
+  if(fireSettingsOpen){html+='<div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0eeeb"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label>Current Age</label><input type="number" id="fs-age" value="'+(fs.currentAge||'')+'" min="16" max="80" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"></div><div><label>Target Retire Age</label><input type="number" id="fs-ret-age" value="'+(fs.retireAge||'')+'" min="20" max="80" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"></div></div><div style="margin-bottom:10px"><label>Life Expectancy (age)</label><input type="number" id="fs-life-exp" value="'+(fs.lifeExpectancy||'')+'" min="30" max="120" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"><div style="font-size:10px;color:#aaa;margin-top:3px">Optional — the age you\'re planning your portfolio to last until</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label>Monthly Expenses (฿)</label><input type="number" id="fs-expense" value="'+(fs.monthlyExpense||'')+'" step="500" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"><div style="font-size:10px;color:#aaa;margin-top:3px">Current spending — not salary</div></div><div><label>Inflation Rate (%)</label><input type="number" id="fs-infl" value="'+(fs.inflationRate||10)+'" min="1" max="30" step="0.5" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"><div style="font-size:10px;color:#aaa;margin-top:3px">Min 10% recommended</div></div></div>';html+='<div style="background:#fff7ed;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400e">At age '+(fs.retireAge||65)+', expenses ~฿'+Math.round(expAtRetire).toLocaleString()+'/mo · FIRE = ฿'+Math.round(fireTarget).toLocaleString()+(fs.lifeExpectancy&&fs.lifeExpectancy>fs.retireAge?' · planned to last until age '+fs.lifeExpectancy+' ('+(fs.lifeExpectancy-fs.retireAge)+' years in retirement)':'')+'</div>';html+='<button class="btn btn-primary btn-sm" onclick="saveFireSettings()">Save Settings</button></div>';}
   html+='</div>';
+  html+='<div class="grid-2" style="margin-bottom:12px"><div class="card" style="display:flex;flex-direction:column;align-items:center"><div class="card-title" style="align-self:flex-start">Asset Breakdown</div>'+(total>0&&!hideAmounts?'<canvas id="pie-chart" style="max-width:200px;max-height:200px"></canvas>':'<div style="color:#bbb;font-size:13px;padding:30px;text-align:center">Add data to see chart</div>')+'</div>';
+  html+='<div class="card"><div class="card-title">Portfolio Detail</div>';
+  [['Investments',invVal,'#F7931A'],['Emergency Fund',emg,'#3b82f6'],['Gold',gold,'#ca8a04'],['RMF / SSF',rmf,'#6b7280'],['Real Estate Fund',re,'#8b5cf6']].filter(function(r){return r[1]>0;}).forEach(function(r){html+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f4f3ef"><div style="width:10px;height:10px;border-radius:50%;background:'+r[2]+';flex-shrink:0"></div><div style="flex:1;font-size:13px">'+r[0]+'</div><div style="font-weight:700;color:'+r[2]+'">'+fmtFull(r[1])+'</div><div style="font-size:11px;color:#aaa;min-width:36px;text-align:right">'+(hideAmounts?'•••':(total>0?(r[1]/total*100).toFixed(1)+'%':'—'))+'</div></div>';});
+  if(total===0)html+='<div style="color:#bbb;text-align:center;padding:20px;font-size:13px">No data yet. <a href="#" onclick="navigate(\'networth\')" style="color:#F7931A">Update Net Worth →</a></div>';html+='</div></div>';
   html+='<div class="grid-2"><div class="card"><div class="card-title">This Month — '+monthLabel(activeMonth)+'</div>';
   [['Income',incTotalM(activeMonth),'#16a34a'],['Spent',spentM(activeMonth),'#dc2626'],['Invested',investM(activeMonth),'#F7931A']].forEach(function(row){html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f4f3ef;font-size:13px"><span style="color:#666">'+row[0]+'</span><span style="font-weight:600;color:'+row[2]+'">'+fmtFull(row[1])+'</span></div>';});
   html+='<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="navigate(\'monthly\')">Monthly Detail →</button></div>';
-  html+='<div class="card"><div class="card-title">Bitcoin</div>';
-  if(btcPrice>0)html+='<div style="font-size:20px;font-weight:800;color:#F7931A;margin-bottom:2px">'+fmtPrice(btcPrice)+'</div><div style="font-size:11px;color:#aaa;margin-bottom:8px">per BTC · live</div>';
-  else html+='<div style="font-size:13px;color:#aaa;margin-bottom:8px">Loading…</div>';
-  [['Holdings',hideAmounts?'•••':(sat>0?fmtSat(sat):'—'),'#1a1917'],['Value',fmtFull(btcVal),'#F7931A'],['Invested',fmtFull(totalBTCInvested()),'#666']].forEach(function(row){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+row[0]+'</span><span style="font-weight:600;color:'+row[2]+'">'+row[1]+'</span></div>';});
-  html+='<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="navigate(\'bitcoin\')">Investing detail →</button></div></div>';
+  html+='<div class="card"><div class="card-title">Investments</div>';
+  html+='<div style="font-size:20px;font-weight:800;color:#F7931A;margin-bottom:8px">'+fmtFull(invVal)+'</div>';
+  [['Invested',fmtFull(investmentsInvested()),'#666'],['P&L',(invVal-investmentsInvested())>=0?'+'+fmtFull(invVal-investmentsInvested()):fmtFull(invVal-investmentsInvested()),(invVal-investmentsInvested())>=0?'#16a34a':'#dc2626']].forEach(function(row){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+row[0]+'</span><span style="font-weight:600;color:'+row[2]+'">'+row[1]+'</span></div>';});
+  html+='<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="navigate(\'investing\')">Investing detail →</button></div></div>';
   const ccNow=DB.creditCards||[];
   if(ccNow.length>0){const todayD=new Date().getDate();const alerts=ccNow.filter(c=>{const d=parseInt(c.dueDay)||15;return d>=todayD&&d-todayD<=7;});if(alerts.length>0){html+='<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:11px;font-weight:700;color:#854d0e;margin-bottom:6px">💳 Upcoming Card Payments</div>';alerts.forEach(function(c){const d=parseInt(c.dueDay)||15,days=d-todayD;html+='<div style="font-size:13px;color:#713f12;margin-bottom:3px"><strong>'+c.name+'</strong> — due day '+d+' <span style="color:'+(days<=2?'#dc2626':'#854d0e')+';">('+days+' day'+(days!==1?'s':'')+' left)</span></div>';});html+='</div>';}}
+  if(snaps.length>1)html+='<div class="card" style="margin-top:12px"><div class="card-title">Portfolio Growth</div><canvas id="growth-chart" style="max-height:200px"></canvas></div>';
+  html+='<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Snapshot History</div><a href="#" onclick="navigate(\'networth\')" style="font-size:12px;color:#F7931A">+ Add snapshot →</a></div>';
+  html+='<div class="tbl-wrap"><table><thead><tr><th>Month</th><th>Emergency</th><th>Investments</th><th>Gold</th><th>RMF</th><th>RE Fund</th><th>Total</th><th></th></tr></thead><tbody>';
+  if(DB.portfolio.length===0){html+='<tr><td colspan="8" style="color:#bbb;text-align:center;padding:18px">No snapshots yet.</td></tr>';}
+  else{[...DB.portfolio].reverse().forEach(function(e){const t=(parseFloat(e.emergency)||0)+(parseFloat(e.investments)||0)+(parseFloat(e.gold)||0)+(parseFloat(e.rmf)||0)+(parseFloat(e.realEstate)||0);html+='<tr><td><strong>'+e.date+'</strong></td><td>'+fmtFull(e.emergency)+'</td><td style="color:#F7931A;font-weight:600">'+fmtFull(e.investments)+'</td><td>'+fmtFull(e.gold)+'</td><td>'+fmtFull(e.rmf)+'</td><td style="color:#8b5cf6">'+fmtFull(e.realEstate||0)+'</td><td><strong>'+fmt(t)+'</strong></td><td><button class="del-btn" onclick="delPortfolio(\''+e.id+'\')">✕</button></td></tr>';});}
+  html+='</tbody></table></div></div>';
   document.getElementById('content').innerHTML=html;
+  const pieCtx=document.getElementById('pie-chart');
+  if(pieCtx&&total>0&&!hideAmounts){const labels=[],data=[],colors=[];if(invVal>0){labels.push('Investments');data.push(Math.round(invVal));colors.push('#F7931A');}if(emg>0){labels.push('Emergency');data.push(emg);colors.push('#3b82f6');}if(gold>0){labels.push('Gold');data.push(gold);colors.push('#ca8a04');}if(rmf>0){labels.push('RMF');data.push(rmf);colors.push('#6b7280');}if(re>0){labels.push('Real Estate');data.push(re);colors.push('#8b5cf6');}try{activeChart=new Chart(pieCtx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}});}catch(e){console.warn('Chart error:',e);}}
+  const growthCtx=document.getElementById('growth-chart');
+  if(growthCtx&&snaps.length>1&&!hideAmounts){const labels=snaps.map(s=>s.date),totals=snaps.map(s=>(parseFloat(s.emergency)||0)+(parseFloat(s.investments)||0)+(parseFloat(s.gold)||0)+(parseFloat(s.rmf)||0)+(parseFloat(s.realEstate)||0));try{activeChart2=new Chart(growthCtx,{type:'line',data:{labels,datasets:[{label:'Portfolio',data:totals,borderColor:'#F7931A',backgroundColor:'rgba(247,147,26,.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fmt(v);}}}}}});}catch(e){console.warn('Chart2 error:',e);}}
 }
+function delPortfolio(id){DB.portfolio=DB.portfolio.filter(p=>p.id!==id);save();renderDashboard();}
 
 // ─────────────────────────────────────────────────────
 // PAGE: MONTHLY — BUDGET & PRESETS
@@ -802,16 +849,15 @@ function renderMonthlyBody(){
   html+='<div style="font-size:10px;color:#bbb;margin:-6px 0 10px;text-align:center">Photo import runs free on-device OCR — check the preview carefully, Thai text recognition isn\'t perfect</div>';
   html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Income</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:700;color:#16a34a">'+fmtFull(inc)+'</span><button class="btn btn-sm '+(editingIncomeSources?'btn-primary':'btn-ghost')+'" onclick="toggleIncomeSourceEdit()">'+(editingIncomeSources?'✓ Done':'✏ Sources')+'</button></div></div>';
   if(editingIncomeSources){const incSrcList=DB.incomeSources||[];html+='<div style="background:#f7f6f3;border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Income Sources</div>';incSrcList.forEach(function(name){html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="flex:1;font-size:13px">'+name+'</span><button style="background:none;border:none;color:#bbb;cursor:pointer;padding:2px 5px;font-size:13px" data-isn="'+name+'" onclick="moveIncomeSource(this.dataset.isn,-1)">▲</button><button style="background:none;border:none;color:#bbb;cursor:pointer;padding:2px 5px;font-size:13px" data-isn="'+name+'" onclick="moveIncomeSource(this.dataset.isn,1)">▼</button><button class="del-btn" style="padding:3px 8px;font-size:11px" data-isn="'+name+'" onclick="removeIncomeSource(this.dataset.isn)">✕</button></div>';});html+='<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="new-inc-src" placeholder="New source name" style="flex:1;border:1px solid #e0ded8;border-radius:6px;padding:6px 9px;font-size:13px;outline:none"><button class="btn btn-ghost btn-sm" onclick="addIncomeSource()">+ Add</button></div></div>';}
-  const incSrcs=DB.incomeSources||['Salary','Side / Amway','Freelance','Bitcoin gains','Other'];
+  const incSrcs=DB.incomeSources||['Salary','Side income','Freelance','Investment gains','Other'];
   html+='<div class="form-row c4" style="margin-bottom:8px"><div><label>Date</label><input type="date" id="inc-date" value="'+activeMonth+'-01"></div><div><label>Amount (฿)</label><input type="number" id="inc-amt" placeholder="0" step="0.01"></div><div><label>Source</label><select id="inc-src">'+incSrcs.map(s=>'<option value="'+s+'">'+s+'</option>').join('')+'</select></div><div><label>Note</label><input type="text" id="inc-note" placeholder="note"></div></div>';
   html+='<button class="btn btn-primary btn-sm" onclick="addIncome()">+ Add Income</button>';
   html+='<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>';
   incM(activeMonth).forEach(function(i){html+='<tr><td>'+i.date+'</td><td><strong>'+i.src+'</strong></td><td style="color:#16a34a;font-weight:600">'+fmtFull(i.amt)+'</td><td style="font-size:11px;color:#999">'+(i.note||'')+'</td><td><button class="del-btn" onclick="delIncome(\''+i.id+'\')">✕</button></td></tr>';});
   if(incM(activeMonth).length===0)html+='<tr><td colspan="5" style="color:#bbb;text-align:center;padding:14px">No income</td></tr>';html+='</tbody></table></div></div>';
   html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Transactions</div><span style="font-weight:600;color:#dc2626">'+fmtFull(sp)+' spent</span></div>';
-  // Transaction form — c4 normally, c5 if credit cards configured
   const hasCards=(DB.creditCards||[]).length>0;
-  html+='<div class="form-row '+(hasCards?'c4':'c4')+'" style="margin-bottom:8px"><div><label>Date</label><input type="date" id="tx-date" value="'+activeMonth+'-01"></div><div><label>Amount (฿)</label><input type="number" id="tx-amt" placeholder="0" step="0.01"></div><div><label>Category</label><select id="tx-cat">';
+  html+='<div class="form-row c4" style="margin-bottom:8px"><div><label>Date</label><input type="date" id="tx-date" value="'+activeMonth+'-01"></div><div><label>Amount (฿)</label><input type="number" id="tx-amt" placeholder="0" step="0.01"></div><div><label>Category</label><select id="tx-cat">';
   ALL_CATS.forEach(function(c){html+='<option value="'+c+'">'+(CAT_MAP[c]||c)+' ('+c+')</option>';});
   html+='</select></div><div><label>Note</label><input type="text" id="tx-note" placeholder="note"></div></div>';
   if(hasCards){
@@ -852,29 +898,18 @@ function delIncome(id){DB.income=DB.income.filter(i=>i.id!==id);save();renderMon
 function saveNote(){DB.notes[activeMonth]={good:document.getElementById('note-good').value,improve:document.getElementById('note-improve').value};save();const el=document.getElementById('note-saved');if(el){el.textContent='Saved ✓';setTimeout(()=>{if(document.getElementById('note-saved'))document.getElementById('note-saved').textContent='';},2000);}}
 
 // ─────────────────────────────────────────────────────
-// PAGE: INVESTING (Bitcoin DCA + Custom investments)
+// PAGE: INVESTING — fully custom, user-defined investments.
+// Add any investment (stocks, funds, crypto, anything) with
+// its own DCA amount, price/unit and entry history.
 // ─────────────────────────────────────────────────────
 function renderInvesting(){
-  const sat=totalSat(),inv=totalBTCInvested(),val=btcValueTHB(),pnl=val-inv,avgCost=sat>0?inv/(sat/1e8):0,dca=DB.dcaAmount||108;
-  let html='';
-  html+='<div style="background:#fffbf5;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:12px"><div style="font-size:10px;color:#c2410c;font-weight:700;text-transform:uppercase;margin-bottom:10px">Bitcoin — DCA Tracker</div>';
-  html+='<div class="grid-4" style="margin:0"><div><div style="font-size:10px;color:#aaa">เงินต้น</div><div style="font-size:16px;font-weight:700">'+fmtFull(inv)+'</div></div><div><div style="font-size:10px;color:#aaa">บิตคอยน์</div><div style="font-size:16px;font-weight:700;color:#F7931A">'+fmtSat(sat)+'</div></div><div><div style="font-size:10px;color:#aaa">มูลค่า</div><div style="font-size:16px;font-weight:700">'+(val>0?fmtFull(val):'—')+'</div><div style="font-size:10px;color:'+(btcPrice>0?'#22c55e':'#aaa')+'">'+(btcPrice>0?'live':'—')+'</div></div><div><div style="font-size:10px;color:#aaa">ต้นทุนเฉลี่ย</div><div style="font-size:16px;font-weight:700">'+(avgCost>0?fmtFull(avgCost):'—')+'</div></div></div>';
-  html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid #fde68a"><div style="font-size:10px;color:#aaa;margin-bottom:2px">กำไร/ขาดทุน</div><div style="font-size:22px;font-weight:800;color:'+(pnl>=0?'#16a34a':'#dc2626')+'">'+(pnl>=0?'+':'')+fmtFull(pnl)+'</div>';
-  if(!hideAmounts&&val>0&&inv>0)html+='<div style="font-size:12px;color:'+(pnl>=0?'#16a34a':'#dc2626')+'">'+((pnl/inv)*100).toFixed(2)+'% ROI</div>';
-  html+='</div></div>';
-  html+='<div class="grid-2"><div class="card"><div class="card-title">ราคาบิตคอยน์</div><div style="font-size:26px;font-weight:800;color:#F7931A">'+(btcPrice>0?fmtPrice(btcPrice):'—')+'</div>'+(btcPrice>0?'<div style="font-size:11px;color:#aaa;margin-top:2px">refreshes 60s</div>':'')+'<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="fetchBTCPrice()">Refresh</button></div>';
-  html+='<div class="card"><div class="card-title">Auto DCA — Investing</div><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input type="number" id="dca-amount" value="'+dca+'" min="1" step="1" style="width:90px;border:1px solid #e0ded8;border-radius:6px;padding:6px 8px;font-size:13px;outline:none" oninput="DB.dcaAmount=parseFloat(this.value)||108;save()"><span style="font-size:12px;color:#666">฿/day</span><button class="btn btn-primary btn-sm" style="flex:1" onclick="autoDCA()">📲 Log today</button><span id="dca-saved" style="font-size:11px;margin-left:6px"></span></div><div style="font-size:11px;color:#aaa">'+(btcPrice>0?fmtPrice(btcPrice)+'/BTC → ~'+Math.round(dca/btcPrice*1e8).toLocaleString()+' sat':'Load price first')+'</div></div></div>';
-  html+='<div class="card"><div class="card-title">Manual BTC Entry</div><div class="form-row c4"><div><label>Date</label><input type="date" id="btc-date" value="'+new Date().toISOString().slice(0,10)+'"></div><div><label>Amount (฿)</label><input type="number" id="btc-thb" placeholder="'+dca+'" value="'+dca+'" step="0.01" oninput="calcSat()"></div><div><label>Satoshi</label><input type="number" id="btc-sat" placeholder="'+(btcPrice>0?Math.round(dca/btcPrice*1e8):4772)+'"></div><div><label>Ref price</label><input type="number" id="btc-ref" value="'+(btcPrice>0?Math.round(btcPrice):'')+'"></div></div>';
-  html+='<div class="form-row c2"><div><label>Note</label><input type="text" id="btc-note" placeholder="Auto DCA…"></div><div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="addBtcEntry()">Save</button></div></div></div>';
-  const btcEntries=[...DB.btcEntries].reverse();
-  html+='<div class="card"><div class="card-title">BTC History — '+btcEntries.length+' entries</div><div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Satoshi</th><th>Ref Price</th><th>Note</th><th></th></tr></thead><tbody>';
-  if(btcEntries.length===0){html+='<tr><td colspan="6" style="color:#bbb;text-align:center;padding:18px">No entries</td></tr>';}
-  else{btcEntries.forEach(function(e){html+='<tr><td>'+e.date+'</td><td style="font-weight:600">'+fmtFull(e.thb)+'</td><td style="color:#F7931A;font-weight:600">'+(hideAmounts?'•••':(parseInt(e.sat)||0).toLocaleString()+' sat')+'</td><td style="font-size:12px">'+(e.refPrice?fmtFull(e.refPrice):'—')+'</td><td style="font-size:11px;color:#999">'+(e.note||'')+'</td><td><button class="del-btn" onclick="delBtcEntry(\''+e.id+'\')">✕</button></td></tr>';});}
-  html+='</tbody></table></div></div>';
-  html+='<div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin:18px 0 10px;padding-top:14px;border-top:2px solid #f0efe8">Other Investments</div>';
   const invs=DB.customInvestments||[];
+  let html='';
+  if(invs.length===0){
+    html+='<div class="card" style="text-align:center;padding:30px 16px"><div style="font-size:14px;color:#888;margin-bottom:6px">No investments yet</div><div style="font-size:12px;color:#bbb">Add your first one below — stocks, funds, crypto, anything you track.</div></div>';
+  }
   invs.forEach(function(iv){
-    const tot=iv.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0),totU=iv.entries.reduce((s,e)=>s+(parseFloat(e.units)||0),0),c=iv.color||'#10b981',curVal=iv.pricePerUnit>0&&totU>0?iv.pricePerUnit*totU:0,pnl=curVal>0?curVal-tot:0;
+    const tot=iv.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0),totU=iv.entries.reduce((s,e)=>s+(parseFloat(e.units)||0),0),c=iv.color||'#F7931A',curVal=iv.pricePerUnit>0&&totU>0?iv.pricePerUnit*totU:0,pnl=curVal>0?curVal-tot:0;
     html+='<div class="card" style="border-left:3px solid '+c+'"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="width:10px;height:10px;border-radius:50%;background:'+c+'"></div><div style="font-size:15px;font-weight:700">'+iv.name+'</div>';
     if(iv.ticker)html+='<span class="tag">'+iv.ticker+'</span>';if(iv.link)html+='<a href="'+iv.link+'" target="_blank" rel="noopener" style="font-size:11px;color:#3b82f6;text-decoration:none;padding:2px 7px;border:1px solid #bfdbfe;border-radius:5px">🔗 Chart</a>';
     html+='</div><div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+c+'">'+(curVal>0?fmtFull(curVal)+'<span style="font-size:11px;color:#aaa;font-weight:400"> est.</span>':fmtFull(tot))+'</div>';
@@ -888,22 +923,18 @@ function renderInvesting(){
     else{html+='<div style="color:#bbb;font-size:12px;text-align:center;padding:8px">No entries yet</div>';}
     html+='</div>';
   });
-  html+='<div class="card" style="border:1px dashed #d1d5db"><div class="card-title">+ Add Investment</div><div class="form-row c4"><div><label>Name</label><input type="text" id="ni-name" placeholder="e.g. Gulf Energy"></div><div><label>Ticker (opt)</label><input type="text" id="ni-ticker" placeholder="e.g. GULF"></div><div><label>Color</label><select id="ni-color">';
+  html+='<div class="card" style="border:1px dashed #d1d5db"><div class="card-title">+ Add Investment</div><div class="form-row c4"><div><label>Name</label><input type="text" id="ni-name" placeholder="e.g. Bitcoin, SET50, Gold Fund"></div><div><label>Ticker (opt)</label><input type="text" id="ni-ticker" placeholder="e.g. BTC"></div><div><label>Color</label><select id="ni-color">';
   INV_COLORS.forEach(function(c,i){html+='<option value="'+c+'">Color '+(i+1)+'</option>';});
-  html+='</select></div><div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="addCustomInv()">Create</button></div></div><div class="form-row" style="margin-top:4px"><div><label>Price/Chart Link (opt)</label><input type="text" id="ni-link" placeholder="https://www.google.com/finance/quote/GULF:BKK"></div></div></div>';
+  html+='</select></div><div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="addCustomInv()">Create</button></div></div><div class="form-row" style="margin-top:4px"><div><label>Price/Chart Link (opt)</label><input type="text" id="ni-link" placeholder="https://..."></div></div></div>';
   document.getElementById('content').innerHTML=html;
 }
-function calcSat(){const thb=parseFloat(document.getElementById('btc-thb').value)||0,ref=parseFloat(document.getElementById('btc-ref').value)||btcPrice;if(thb>0&&ref>0)document.getElementById('btc-sat').value=Math.round(thb/ref*1e8);}
-function autoDCA(){if(!btcPrice)return toast('BTC price not loaded yet.','err');const inputEl=document.getElementById('dca-amount');if(inputEl)DB.dcaAmount=parseFloat(inputEl.value)||108;const dca=DB.dcaAmount||108,today=new Date().toISOString().slice(0,10);const alreadyToday=DB.btcEntries.find(e=>e.date===today&&Math.round(e.thb)===Math.round(dca));if(alreadyToday){const saved=document.getElementById('dca-saved');if(saved){saved.textContent='Already logged today!';saved.style.color='#f59e0b';setTimeout(()=>{const e=document.getElementById('dca-saved');if(e)e.textContent='';},2000);}return;}DB.btcEntries.push({id:uid(),date:today,thb:dca,sat:Math.round(dca/btcPrice*1e8),refPrice:Math.round(btcPrice),note:'Auto DCA'});DB.btcEntries.sort((a,b)=>a.date.localeCompare(b.date));save();checkGoals();renderInvesting();}
-function addBtcEntry(){const date=document.getElementById('btc-date').value,thb=parseFloat(document.getElementById('btc-thb').value)||0,sat=parseInt(document.getElementById('btc-sat').value)||0,refPrice=parseFloat(document.getElementById('btc-ref').value)||0,note=document.getElementById('btc-note').value;if(!date||!thb)return toast('Fill date and amount.','err');DB.btcEntries.push({id:uid(),date,thb,sat:sat||Math.round(thb/refPrice*1e8)||0,refPrice,note});DB.btcEntries.sort((a,b)=>a.date.localeCompare(b.date));save();checkGoals();renderInvesting();}
-function delBtcEntry(id){DB.btcEntries=DB.btcEntries.filter(e=>e.id!==id);save();renderInvesting();}
 function addCustomInv(){const name=document.getElementById('ni-name').value.trim();if(!name)return toast('Enter a name.','err');if(!DB.customInvestments)DB.customInvestments=[];DB.customInvestments.push({id:uid(),name,ticker:document.getElementById('ni-ticker').value.trim(),color:document.getElementById('ni-color').value,link:document.getElementById('ni-link').value.trim(),dcaAmount:0,pricePerUnit:0,entries:[]});save();renderInvesting();}
 function editInvLink(id){const iv=(DB.customInvestments||[]).find(i=>i.id===id);if(!iv)return;const el=document.getElementById('ci-link-'+id);if(el){iv.link=el.value.trim();save();renderInvesting();toast('Link saved','ok');}}
 function delCustomInv(id){DB.customInvestments=(DB.customInvestments||[]).filter(i=>i.id!==id);save();renderInvesting();}
-function addInvEntry(invId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(!iv)return;const date=document.getElementById('ci-date-'+invId).value,amount=parseFloat(document.getElementById('ci-amt-'+invId).value)||0;if(!date||!amount)return toast('Fill date and amount.','err');const units=parseFloat(document.getElementById('ci-units-'+invId).value)||0,note=document.getElementById('ci-note-'+invId).value;iv.entries.push({id:uid(),date,amount,units,note});iv.entries.sort((a,b)=>a.date.localeCompare(b.date));save();renderInvesting();}
+function addInvEntry(invId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(!iv)return;const date=document.getElementById('ci-date-'+invId).value,amount=parseFloat(document.getElementById('ci-amt-'+invId).value)||0;if(!date||!amount)return toast('Fill date and amount.','err');const units=parseFloat(document.getElementById('ci-units-'+invId).value)||0,note=document.getElementById('ci-note-'+invId).value;iv.entries.push({id:uid(),date,amount,units,note});iv.entries.sort((a,b)=>a.date.localeCompare(b.date));save();checkGoals();renderInvesting();}
 function delInvEntry(invId,entryId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(iv)iv.entries=iv.entries.filter(e=>e.id!==entryId);save();renderInvesting();}
 function setInvPrice(invId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(!iv)return;const pe=document.getElementById('ci-price-'+invId),de=document.getElementById('ci-dca-'+invId);if(pe)iv.pricePerUnit=parseFloat(pe.value)||0;if(de)iv.dcaAmount=parseFloat(de.value)||0;save();renderInvesting();}
-function autoInvDCA(invId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(!iv||!iv.dcaAmount)return toast('Set DCA amount first.','err');const today=new Date().toISOString().slice(0,10);const alreadyToday=iv.entries.find(e=>e.date===today&&Math.round(e.amount)===Math.round(iv.dcaAmount));if(alreadyToday){toast('Already logged today for '+iv.name+'.','err');return;}const units=iv.pricePerUnit>0?Math.round((iv.dcaAmount/iv.pricePerUnit)*10000)/10000:0;iv.entries.push({id:uid(),date:today,amount:iv.dcaAmount,units,note:'Auto DCA'});iv.entries.sort((a,b)=>a.date.localeCompare(b.date));save();renderInvesting();}
+function autoInvDCA(invId){const iv=(DB.customInvestments||[]).find(i=>i.id===invId);if(!iv||!iv.dcaAmount)return toast('Set DCA amount first.','err');const today=new Date().toISOString().slice(0,10);const alreadyToday=iv.entries.find(e=>e.date===today&&Math.round(e.amount)===Math.round(iv.dcaAmount));if(alreadyToday){toast('Already logged today for '+iv.name+'.','err');return;}const units=iv.pricePerUnit>0?Math.round((iv.dcaAmount/iv.pricePerUnit)*10000)/10000:0;iv.entries.push({id:uid(),date:today,amount:iv.dcaAmount,units,note:'Auto DCA'});iv.entries.sort((a,b)=>a.date.localeCompare(b.date));save();checkGoals();renderInvesting();}
 
 // ─────────────────────────────────────────────────────
 // PAGE: NET WORTH
@@ -912,23 +943,23 @@ function switchAssetType(val){document.getElementById('at-cat').innerHTML=(val==
 function upsertFireAsset(cat,val){if(!DB.assets)DB.assets=[];const x=DB.assets.find(a=>a.type==='asset'&&a.category===cat);if(x){x.value=val;}else if(val>0){DB.assets.push({id:uid(),type:'asset',category:cat,name:cat,value:val});}}
 function saveFireSnapshot(){
   const month=document.getElementById('fw-month').value;if(!month)return toast('Select a month.','err');
-  const emg=parseFloat(document.getElementById('fw-emg').value)||0,btcO=parseFloat(document.getElementById('fw-btc').value)||0,gold=parseFloat(document.getElementById('fw-gold').value)||0,rmf=parseFloat(document.getElementById('fw-rmf').value)||0,re=parseFloat(document.getElementById('fw-re').value)||0,salary=parseFloat(document.getElementById('fw-salary').value)||0,notes=document.getElementById('fw-notes').value;
+  const emg=parseFloat(document.getElementById('fw-emg').value)||0,invO=parseFloat(document.getElementById('fw-inv').value)||0,gold=parseFloat(document.getElementById('fw-gold').value)||0,rmf=parseFloat(document.getElementById('fw-rmf').value)||0,re=parseFloat(document.getElementById('fw-re').value)||0,salary=parseFloat(document.getElementById('fw-salary').value)||0,notes=document.getElementById('fw-notes').value;
   upsertFireAsset('Emergency Fund',emg);upsertFireAsset('Gold',gold);upsertFireAsset('RMF / SSF',rmf);upsertFireAsset('Real Estate Fund',re);
-  const btcAC=btcPrice>0?Math.round(btcValueTHB()):0,btcToLog=btcO||btcAC;if(btcToLog>0)upsertFireAsset('Bitcoin (THB value)',btcToLog);
-  const entry={id:uid(),date:month,emergency:emg,bitcoin:btcToLog,gold,rmf,realEstate:re,salary,notes};
+  const invAuto=investmentsValue(),invToLog=invO||invAuto;if(invToLog>0)upsertFireAsset('Investment (custom)',invToLog);
+  const entry={id:uid(),date:month,emergency:emg,investments:invToLog,gold,rmf,realEstate:re,salary,notes};
   const idx=DB.portfolio.findIndex(p=>p.date===month);if(idx>=0)DB.portfolio[idx]=entry;else{DB.portfolio.push(entry);DB.portfolio.sort((a,b)=>a.date.localeCompare(b.date));}
   save();checkGoals();renderNetworth();
-  ['fw-emg','fw-btc','fw-gold','fw-rmf','fw-re','fw-salary','fw-notes'].forEach(function(fid){const fe=document.getElementById(fid);if(fe)fe.value='';});
+  ['fw-emg','fw-inv','fw-gold','fw-rmf','fw-re','fw-salary','fw-notes'].forEach(function(fid){const fe=document.getElementById(fid);if(fe)fe.value='';});
   const el=document.getElementById('fw-saved');if(el){el.textContent='Saved ✓';setTimeout(()=>{const e=document.getElementById('fw-saved');if(e)e.textContent='';},2000);}
 }
 function renderNetworth(){
-  if(!DB.assets)DB.assets=[];const{emg,gold,rmf,re,btcVal}=getFireData();const ta=totalAssets(),tl=totalLiab(),net=portfolioTotal();const latP=DB.portfolio.at(-1),btcAC=btcPrice>0?Math.round(btcValueTHB()):0;
+  if(!DB.assets)DB.assets=[];const{emg,gold,rmf,re,invVal}=getFireData();const ta=totalAssets(),tl=totalLiab(),net=portfolioTotal();const latP=DB.portfolio.at(-1),invAuto=investmentsValue();
   let html='';
   html+='<div class="grid-3" style="margin-bottom:12px"><div class="stat-card" style="text-align:center"><div class="stat-label">Assets</div><div class="stat-val" style="color:#16a34a">'+fmtFull(ta)+'</div></div><div class="stat-card" style="text-align:center"><div class="stat-label">Debt</div><div class="stat-val" style="color:#dc2626">'+fmtFull(tl)+'</div></div><div class="stat-card" style="text-align:center"><div class="stat-label">Net Worth</div><div class="stat-val" style="color:'+(net>=0?'#F7931A':'#dc2626')+'">'+fmtFull(net)+'</div></div></div>';
-  html+='<div class="card" style="border-color:#fde68a;border-width:1.5px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><div><div class="card-title" style="margin:0;color:#c2410c">📊 FIRE Portfolio Snapshot</div><div style="font-size:11px;color:#aaa;margin-top:2px">One save updates goals, dashboard, and history</div></div>'+(btcAC>0?'<div style="font-size:11px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:4px 10px;color:#c2410c">BTC live: '+fmtFull(btcAC)+'</div>':'')+'</div>';
-  html+='<div class="form-row c3"><div><label>Month</label><input type="month" id="fw-month" value="'+activeMonth+'"></div><div><label>Emergency Fund (฿)</label><input type="number" id="fw-emg" value="'+(emg||'')+'" placeholder="50000"></div><div><label>Bitcoin THB'+(btcAC>0?' (auto)':'')+'</label><input type="number" id="fw-btc" value="'+(btcAC||'')+'" placeholder="'+(btcAC||'enter or load price')+'"></div></div>';
+  html+='<div class="card" style="border-color:#fde68a;border-width:1.5px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><div><div class="card-title" style="margin:0;color:#c2410c">📊 FIRE Portfolio Snapshot</div><div style="font-size:11px;color:#aaa;margin-top:2px">One save updates goals, dashboard, and history</div></div>'+(invAuto>0?'<div style="font-size:11px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:4px 10px;color:#c2410c">Investments (auto): '+fmtFull(invAuto)+'</div>':'')+'</div>';
+  html+='<div class="form-row c3"><div><label>Month</label><input type="month" id="fw-month" value="'+activeMonth+'"></div><div><label>Emergency Fund (฿)</label><input type="number" id="fw-emg" value="'+(emg||'')+'" placeholder="0"></div><div><label>Investments'+(invAuto>0?' (auto)':'')+'</label><input type="number" id="fw-inv" value="'+(invAuto||'')+'" placeholder="'+(invAuto||'enter manually or leave blank')+'"></div></div>';
   html+='<div class="form-row c3"><div><label>Gold (฿)</label><input type="number" id="fw-gold" value="'+(gold||'')+'" placeholder="0"></div><div><label>RMF total (฿)</label><input type="number" id="fw-rmf" value="'+(rmf||'')+'" placeholder="0"></div><div><label>Real Estate Fund (฿)</label><input type="number" id="fw-re" value="'+(re||'')+'" placeholder="0"></div></div>';
-  html+='<div class="form-row c2"><div><label>Salary this month</label><input type="number" id="fw-salary" value="'+(parseFloat(latP?.salary)||'')+'" placeholder="30000"></div><div><label>Notes</label><input type="text" id="fw-notes" placeholder="e.g. Kept DCA, BTC dipped"></div></div>';
+  html+='<div class="form-row c2"><div><label>Salary this month</label><input type="number" id="fw-salary" value="'+(parseFloat(latP?.salary)||'')+'" placeholder="0"></div><div><label>Notes</label><input type="text" id="fw-notes" placeholder="optional note"></div></div>';
   html+='<div style="display:flex;align-items:center;gap:10px"><button class="btn btn-primary" onclick="saveFireSnapshot()">Save Snapshot</button><span id="fw-saved" style="font-size:12px;color:#16a34a;font-weight:600"></span></div></div>';
   html+='<div class="card"><div class="card-title">Add Asset or Liability</div><div style="font-size:11px;color:#aaa;margin-bottom:10px">All assets count toward portfolio total and goals.</div>';
   html+='<div class="form-row c2"><div><label>Type</label><select id="at-type" onchange="switchAssetType(this.value)"><option value="asset">Asset</option><option value="liability">Liability</option></select></div><div><label>Category</label><select id="at-cat">'+ASSET_CATS.map(c=>'<option>'+c+'</option>').join('')+'</select></div></div>';
@@ -948,9 +979,10 @@ function updateAssetValBtn(id){const el=document.getElementById('at-val-'+id);if
 
 // ─────────────────────────────────────────────────────
 // PAGE: TAX PLANNER
+// Thai Personal Income Tax — deductions: 50% of income
+// (max 100k) + 60k personal + RMF + life ins + health ins.
+// Adjust BRACKETS below if your country's tax rules differ.
 // ─────────────────────────────────────────────────────
-// Thai Personal Income Tax 2024
-// Deductions: 50% of income (max 100k) + 60k personal + RMF + life ins + health ins
 function thaiTax(inc,rmf,li,hi){
   if(!inc||inc<=0)return{taxable:0,tax:0,effective:0,brackets:[],deduct:0};
   rmf=Math.min(rmf||0,inc*0.30,500000);
@@ -963,7 +995,6 @@ function thaiTax(inc,rmf,li,hi){
   const used=BRACKETS.map(b=>{if(rem<=0)return{amt:0,tax:0,rate:b[2],pct:b[1]};const chunk=Math.min(rem,b[0]);rem-=chunk;const t=chunk*b[1];tax+=t;return{amt:chunk,tax:t,rate:b[2],pct:b[1]};});
   return{taxable,tax:Math.round(tax),effective:inc>0?Math.round(tax/inc*10000)/100:0,brackets:used,deduct:totalD};
 }
-
 function renderTax(){
   const year=activeMonth.slice(0,4);
   const monthsIn=parseInt(activeMonth.slice(5))||1;
@@ -982,24 +1013,19 @@ function renderTax(){
   const saving=noRmf.tax-withRmf.tax;
   const extraSaving=withRmf.tax-maxRmfCalc.tax;
   let html='';
-
-  // Income input card
   html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Annual Income for Tax Calculation</div>';
   if(loggedInc>0)html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">From income log: <strong style="color:#16a34a">'+fmtFull(loggedInc)+'</strong></div>';
   html+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">';
-  html+='<input type="number" id="tax-inc-manual" value="'+(manualInc||loggedInc||'')+'" placeholder="e.g. 360000 (฿30k×12)" style="flex:1;border:1.5px solid '+(manualInc>0?'#F7931A':'#e0ded8')+';border-radius:7px;padding:9px 12px;font-size:15px;font-weight:600;outline:none">';
+  html+='<input type="number" id="tax-inc-manual" value="'+(manualInc||loggedInc||'')+'" placeholder="e.g. 360000" style="flex:1;border:1.5px solid '+(manualInc>0?'#F7931A':'#e0ded8')+';border-radius:7px;padding:9px 12px;font-size:15px;font-weight:600;outline:none">';
   html+='<button class="btn btn-primary" onclick="saveTaxIncome()">&#x2713; Confirm</button>';
   if(manualInc>0)html+='<button class="btn btn-ghost btn-sm" onclick="clearTaxIncome()">Clear</button>';
   html+='</div>';
   html+='<div style="font-size:11px;color:#aaa">'+(manualInc>0?'Using manual: <strong style="color:#F7931A">'+fmtFull(manualInc)+'</strong>. Click Clear to use income log.':(loggedInc>0?'Auto-using income log. Override above if needed.':'No income logged for '+year+'. Enter annual income above.'))+'</div>';
   html+='</div>';
-
   if(!annualInc){
     html+='<div style="background:#fef9c3;border:1px solid #fde047;border-radius:9px;padding:14px 16px;font-size:13px;color:#854d0e">Enter your annual income above and tap <strong>&#x2713; Confirm</strong> to calculate tax.</div>';
     document.getElementById('content').innerHTML=html;return;
   }
-
-  // Two main cards: without RMF vs with RMF
   html+='<div class="grid-2" style="margin-bottom:12px">';
   html+='<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center">';
   html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#dc2626;margin-bottom:6px">Without RMF</div>';
@@ -1014,10 +1040,7 @@ function renderTax(){
   html+='<div style="font-size:11px;color:#aaa;margin-top:2px">Taxable: '+fmtFull(withRmf.taxable)+'</div>';
   html+='</div>';
   html+='</div>';
-
   if(extraSaving>0)html+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#c2410c">Buy <strong>'+fmtFull(rmfLeft)+'</strong> more RMF → save extra <strong>'+fmtFull(extraSaving)+'</strong> &nbsp;·&nbsp; <strong>'+fmtFull(recMonthly)+'/month</strong> for '+monthsLeft+' months</div>';
-
-  // Bracket breakdown with bars
   html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Bracket Breakdown &mdash; Taxable: '+fmtFull(withRmf.taxable)+'</div>';
   const maxT=Math.max(...withRmf.brackets.map(b=>b.tax),1);
   const ranges=['0–150k','150–300k','300–500k','500–750k','750k–1M','1M–2M','2M–5M','5M+'];
@@ -1033,14 +1056,12 @@ function renderTax(){
   });
   html+='<div style="display:flex;justify-content:space-between;padding-top:8px;font-size:13px;font-weight:700"><span>Total</span><span style="color:#F7931A">'+fmtFull(withRmf.tax)+' ('+withRmf.effective+'%)</span></div>';
   html+='</div>';
-
-  // RMF + deductions + summary
   html+='<div class="grid-2"><div>';
   html+='<div class="card"><div class="card-title">RMF</div>';
   html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin-bottom:10px"><label style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;display:block">RMF Purchased This Year (฿)</label>';
   html+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="rmf-manual" value="'+rmfBought+'" placeholder="0" style="flex:1;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;font-size:14px;outline:none"><button class="btn btn-primary btn-sm" onclick="saveRMFManual()">Save</button></div></div>';
   [['Max allowable',fmtFull(maxRmf),'#1a1917'],['Purchased',fmtFull(rmfBought),'#16a34a'],['Remaining',fmtFull(rmfLeft),'#dc2626']].forEach(function(r){html+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid #f4f3ef"><span style="color:#666">'+r[0]+'</span><span style="font-weight:700;color:'+r[2]+'">'+r[1]+'</span></div>';});
-  html+='<div style="margin-top:8px;font-size:11px;color:#aaa">Tax refund March → recycle into BTC DCA.</div></div>';
+  html+='<div style="margin-top:8px;font-size:11px;color:#aaa">Any refund can be recycled into your investments.</div></div>';
   html+='<div class="card"><div class="card-title">Other Deductions</div>';
   [['lifeIns','Life Insurance',100000],['healthIns','Health Insurance',25000]].forEach(function(row){
     const k=row[0];
@@ -1069,55 +1090,176 @@ function clearTaxIncome(){if(!DB.tax)DB.tax={};DB.tax.manualIncome=0;save();rend
 
 // ─────────────────────────────────────────────────────
 // PAGE: GOALS
+// All goals — including the seeded portfolio milestones,
+// emergency fund, income goal etc — live in DB.goals and
+// can ALL be renamed, retargeted, recategorized or deleted.
+// A single "Edit" toggle (top-right, like Monthly's Budget
+// Plan) switches the whole list into an editable grid,
+// instead of a per-row pencil button.
 // ─────────────────────────────────────────────────────
-let editingGoalId=null;
-function resolveGoalValue(g,btcVal,emg,re,sal,total){const nm=g.name.toLowerCase().trim();const assetMatch=(DB.assets||[]).find(a=>a.name.toLowerCase().trim()===nm&&a.type==='asset');const invMatch=(DB.customInvestments||[]).find(i=>i.name.toLowerCase().trim()===nm);const src=g.source||'auto';if(src==='asset'&&assetMatch)return parseFloat(assetMatch.value)||0;if(src==='investment'&&invMatch)return invMatch.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);if(src==='auto'){if(assetMatch)return parseFloat(assetMatch.value)||0;if(invMatch)return invMatch.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);}return g.cat==='bitcoin'?btcVal:g.cat==='emergency'?emg:g.cat==='income'?sal:g.cat==='realestate'?re:total;}
-function resolveGoalSourceLabel(g){const nm=g.name.toLowerCase().trim();const assetMatch=(DB.assets||[]).find(a=>a.name.toLowerCase().trim()===nm&&a.type==='asset');const invMatch=(DB.customInvestments||[]).find(i=>i.name.toLowerCase().trim()===nm);const src=g.source||'auto';if(src==='asset'&&assetMatch)return'Net Worth: '+assetMatch.name;if(src==='investment'&&invMatch)return'Investment: '+invMatch.name;if(src==='auto'){if(assetMatch)return'Auto → Net Worth: '+assetMatch.name;if(invMatch)return'Auto → Investment: '+invMatch.name;}return'Category: '+g.cat;}
-function getGoalSources(goalName){const nm=(goalName||'').toLowerCase().trim();const opts=[{v:'cat',l:'Category (default)'}];const a=(DB.assets||[]).find(x=>x.name.toLowerCase().trim()===nm&&x.type==='asset');const i=(DB.customInvestments||[]).find(x=>x.name.toLowerCase().trim()===nm);if(a)opts.push({v:'asset',l:'Net Worth: '+a.name+' (฿'+Math.round(parseFloat(a.value)||0).toLocaleString()+')'});if(i){const tot=i.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);opts.push({v:'investment',l:'Investment: '+i.name+' (฿'+Math.round(tot).toLocaleString()+')'});}if(opts.length>1)opts.push({v:'auto',l:'Auto (name match first)'});return opts;}
+let goalsEditMode=false;
+function toggleGoalsEdit(){goalsEditMode=!goalsEditMode;renderGoals();}
+// Value resolution for a goal's "current amount":
+//   'manual'     -> the number typed into g.manualValue by the person
+//   'asset'      -> pulled live from a Net Worth asset with the same name
+//   'investment' -> pulled live from a custom investment with the same name
+//   'auto'       -> tries asset match, then investment match, else falls
+//                   back to the category default below
+//   'cat' (default) -> plain category totals (emergency/income/realestate/portfolio)
+function resolveGoalValue(g,invVal,emg,re,sal,total){
+  const nm=g.name.toLowerCase().trim();
+  const assetMatch=(DB.assets||[]).find(a=>a.name.toLowerCase().trim()===nm&&a.type==='asset');
+  const invMatch=(DB.customInvestments||[]).find(i=>i.name.toLowerCase().trim()===nm);
+  const src=g.source||'auto';
+  if(src==='manual')return parseFloat(g.manualValue)||0;
+  if(src==='asset'&&assetMatch)return parseFloat(assetMatch.value)||0;
+  if(src==='investment'&&invMatch)return invMatch.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  if(src==='auto'){if(assetMatch)return parseFloat(assetMatch.value)||0;if(invMatch)return invMatch.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);}
+  return g.cat==='emergency'?emg:g.cat==='income'?sal:g.cat==='realestate'?re:total;
+}
+function resolveGoalSourceLabel(g){
+  const nm=g.name.toLowerCase().trim();
+  const assetMatch=(DB.assets||[]).find(a=>a.name.toLowerCase().trim()===nm&&a.type==='asset');
+  const invMatch=(DB.customInvestments||[]).find(i=>i.name.toLowerCase().trim()===nm);
+  const src=g.source||'auto';
+  if(src==='manual')return'Manual entry';
+  if(src==='asset'&&assetMatch)return'Net Worth: '+assetMatch.name;
+  if(src==='investment'&&invMatch)return'Investment: '+invMatch.name;
+  if(src==='auto'){if(assetMatch)return'Auto → Net Worth: '+assetMatch.name;if(invMatch)return'Auto → Investment: '+invMatch.name;}
+  return'Category: '+g.cat;
+}
+// Options for the "Value Source" dropdown in Edit mode. "Manual entry" is
+// always offered (for when there's no matching Net Worth/Investment item);
+// asset/investment options only appear when a name match actually exists.
+function getGoalSources(goalName){
+  const nm=(goalName||'').toLowerCase().trim();
+  const opts=[{v:'cat',l:'Category (default)'}];
+  const a=(DB.assets||[]).find(x=>x.name.toLowerCase().trim()===nm&&x.type==='asset');
+  const i=(DB.customInvestments||[]).find(x=>x.name.toLowerCase().trim()===nm);
+  if(a)opts.push({v:'asset',l:'Net Worth: '+a.name+' (฿'+Math.round(parseFloat(a.value)||0).toLocaleString()+')'});
+  if(i){const tot=i.entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);opts.push({v:'investment',l:'Investment: '+i.name+' (฿'+Math.round(tot).toLocaleString()+')'});}
+  if(opts.length>1)opts.push({v:'auto',l:'Auto (name match first)'});
+  opts.push({v:'manual',l:'Manual entry (type your own number)'});
+  return opts;
+}
 function checkGoals(){
-  if(!DB.chainHits)DB.chainHits={};const total=portfolioTotal();const{emg,btcVal,re}=getFireData();const es=DB.emergencySettings||{expense:15000,months:6};const emgTarget=es.expense*es.months;
+  const total=portfolioTotal();const{emg,invVal,re}=getFireData();const es=DB.emergencySettings||{expense:15000,months:6};const emgTarget=es.expense*es.months;
   const recentMonths=[...new Set(DB.income.map(i=>i.month))].sort().slice(-3);const maxRecentInc=recentMonths.length>0?Math.max(...recentMonths.map(m=>incTotalM(m))):0;const sal=Math.max(parseFloat(DB.portfolio.at(-1)?.salary)||0,maxRecentInc);
-  PORTFOLIO_CHAIN.forEach(g=>{if(!DB.chainHits[g.id]&&total>=g.target)DB.chainHits[g.id]=new Date().toISOString().slice(0,10);});
   if(!DB.goals)DB.goals=DEFAULT_GOALS;if(!DB.goalHits)DB.goalHits={};
-  DB.goals.forEach(g=>{if(DB.goalHits[g.id])return;const target=g.cat==='emergency'?emgTarget:g.target;const v=g.cat==='emergency'?emg:resolveGoalValue(g,btcVal,emg,re,sal,total);if(v>=target)DB.goalHits[g.id]=new Date().toISOString().slice(0,10);});
-  // Note: callers (addTx, addBtcEntry, saveFireSnapshot etc.) call save() — no need to call it here
+  DB.goals.forEach(g=>{if(DB.goalHits[g.id])return;const target=g.cat==='emergency'?emgTarget:g.target;const v=g.cat==='emergency'?emg:resolveGoalValue(g,invVal,emg,re,sal,total);if(v>=target)DB.goalHits[g.id]=new Date().toISOString().slice(0,10);});
+  // Note: callers (addTx, addInvEntry, saveFireSnapshot etc.) call save() -- no need to call it here
 }
 function saveEmergencySettings(){if(!DB.emergencySettings)DB.emergencySettings={expense:15000,months:6};const exp=parseFloat(document.getElementById('emg-expense').value)||15000,months=Math.max(1,parseFloat(document.getElementById('emg-months').value)||6);DB.emergencySettings={expense:exp,months};save();renderGoals();}
+
+// ── GOAL GROUPS ──
+// Goals that share the same name (case/whitespace-insensitive) form a
+// "chain" — e.g. three goals all named "Portfolio" with targets 100k,
+// 500k, 1M. Within a chain, the lowest target always shows first; once
+// its owner marks it done, the next-lowest target in that chain becomes
+// the active one. Goals with a unique name are simply their own
+// one-entry chain. getGoalGroups() returns one group per distinct name,
+// in "group order" (see moveGoalGroup to reorder which comes first/last).
+function getGoalGroups(){
+  const goals=(DB.goals||[]).filter(g=>g.cat!=='emergency');
+  const order=[],map={};
+  goals.forEach(g=>{const key=g.name.trim().toLowerCase();if(!map[key]){map[key]=[];order.push(key);}map[key].push(g);});
+  order.forEach(k=>map[k].sort((a,b)=>a.target-b.target));
+  return order.map(k=>({key:k,name:map[k][0].name,entries:map[k]}));
+}
+function moveGoalGroup(key,dir){
+  const groups=getGoalGroups();
+  const idx=groups.findIndex(g=>g.key===key),to=idx+dir;
+  if(idx<0||to<0||to>=groups.length)return;
+  [groups[idx],groups[to]]=[groups[to],groups[idx]];
+  const emergency=(DB.goals||[]).filter(g=>g.cat==='emergency');
+  DB.goals=[...emergency,...groups.flatMap(g=>g.entries)];
+  save();renderGoals();
+}
+function updateGoalManualValue(id,val){const g=(DB.goals||[]).find(x=>x.id===id);if(!g)return;g.manualValue=parseFloat(val)||0;save();checkGoals();renderGoals();}
+
 function renderGoals(){
-  if(!DB.chainHits)DB.chainHits={};const total=portfolioTotal();const{emg,btcVal,re}=getFireData();const es=DB.emergencySettings||{expense:15000,months:6};const emgTarget=es.expense*es.months;const emgPct=hideAmounts?0:Math.min(emg/emgTarget*100,100);const emgDone=emg>=emgTarget;const lastDone=PORTFOLIO_CHAIN.filter(g=>DB.chainHits[g.id]).at(-1);const nextGoal=PORTFOLIO_CHAIN.find(g=>!DB.chainHits[g.id]);const doneCount=Object.keys(DB.goalHits||{}).length+Object.keys(DB.chainHits||{}).length;const recentIncMonths=[...new Set(DB.income.map(i=>i.month))].sort().slice(-3);const curMonthInc=recentIncMonths.length>0?Math.max(...recentIncMonths.map(m=>incTotalM(m))):0;const curSal=Math.max(parseFloat(DB.portfolio.at(-1)?.salary)||0,curMonthInc);
-  function gRow(g,cur,hitDate){
-    const id=g.id,name=g.name,note=g.note||'',target=g.target,cat=g.cat||'portfolio',isCustom=g.custom,isEditing=editingGoalId===id,done=!!hitDate,pct=hideAmounts?0:Math.min(cur/target*100,100),color=CAT_COLORS[cat]||'#F7931A',srcLabel=g.custom?resolveGoalSourceLabel(g):'';
-    if(isEditing){const srcs=g.custom?getGoalSources(name):[{v:'cat',l:'Category (default)'}];let h='<div class="goal-row" style="border-color:'+color+';flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px"><div style="font-size:13px;font-weight:700;color:'+color+'">✏ Edit: '+name+'</div><div style="display:flex;gap:8px;flex-wrap:wrap"><div style="flex:2;min-width:120px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Name</label><input type="text" id="ge-name-'+id+'" value="'+name.replace(/'/g,"&#39;")+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div><div style="flex:1;min-width:100px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Target (฿)</label><input type="number" id="ge-target-'+id+'" value="'+target+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div><div style="flex:1;min-width:80px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Category</label><select id="ge-cat-'+id+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none">'+['portfolio','bitcoin','income','realestate','custom'].map(c=>'<option'+(c===cat?' selected':'')+'>'+c+'</option>').join('')+'</select></div></div>';h+='<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Note</label><input type="text" id="ge-note-'+id+'" value="'+note.replace(/'/g,"&#39;")+'" placeholder="Why this matters" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div>';if(g.custom&&srcs.length>1){h+='<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Value Source</label><select id="ge-src-'+id+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none">';srcs.forEach(function(s){h+='<option value="'+s.v+'"'+(s.v===(g.source||'auto')?' selected':'')+'>'+s.l+'</option>';});h+='</select></div>';}h+='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" data-gid="'+id+'" onclick="saveGoalEdit(this.dataset.gid)">✓ Save</button><button class="btn btn-ghost btn-sm" data-gid="'+id+'" onclick="editGoal(this.dataset.gid)">Cancel</button>';if(isCustom)h+='<button class="del-btn" style="margin-left:auto;padding:5px 10px" data-gid="'+id+'" onclick="delGoal(this.dataset.gid)">✕ Delete</button>';h+='</div></div>';return h;}
-    let h='<div class="goal-row" style="border-color:'+(done?color+'44':'#e8e6e0')+';opacity:'+(done?0.72:1)+'"><span class="goal-cat" style="background:'+color+'22;color:'+color+'">'+cat.toUpperCase()+'</span><div style="flex:1;min-width:0"><div class="goal-name">'+(done?'✓ ':'')+name+'</div>';if(note)h+='<div class="goal-note">'+note+'</div>';if(srcLabel)h+='<div style="font-size:9px;color:#bbb;margin-top:2px">📎 '+srcLabel+'</div>';h+='</div><div class="goal-bar-wrap"><div class="progress"><div class="progress-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div><div class="goal-pct-text">'+(hideAmounts?'•••%':pct.toFixed(1)+'%')+'</div><div class="goal-amt" style="color:'+(done?color:'#1a1917')+'">'+(hideAmounts?H:(done?'✓ '+fmtFull(target):fmtFull(cur)+' / '+fmtFull(target)))+'</div><div class="goal-date">'+(hitDate||'')+'</div>';const inGoalsList=!!(DB.goals||[]).find(x=>x.id===id);if(inGoalsList)h+='<button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" data-gid="'+id+'" onclick="editGoal(this.dataset.gid)">✏</button>';h+='</div>';return h;
+  const total=portfolioTotal();const{emg,invVal,re}=getFireData();const es=DB.emergencySettings||{expense:15000,months:6};const emgTarget=es.expense*es.months;const emgPct=hideAmounts?0:Math.min(emg/emgTarget*100,100);const emgDone=emg>=emgTarget;const doneCount=Object.keys(DB.goalHits||{}).length;const recentIncMonths=[...new Set(DB.income.map(i=>i.month))].sort().slice(-3);const curMonthInc=recentIncMonths.length>0?Math.max(...recentIncMonths.map(m=>incTotalM(m))):0;const curSal=Math.max(parseFloat(DB.portfolio.at(-1)?.salary)||0,curMonthInc);
+  const groups=getGoalGroups();
+
+  function gGroupView(group){
+    const active=group.entries.find(g=>!(DB.goalHits||{})[g.id]);
+    const color=CAT_COLORS[(active||group.entries.at(-1)).cat]||'#F7931A';
+    if(!active){
+      // Every target in this chain has been reached.
+      const last=group.entries.at(-1);
+      return '<div class="card" style="border-color:'+color+'55"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><span class="goal-cat" style="background:'+color+'22;color:'+color+'">'+(last.cat||'custom').toUpperCase()+'</span><div style="font-size:15px;font-weight:700;margin-top:6px">✓ '+group.name+'</div><div style="font-size:11px;color:#16a34a;margin-top:2px">All targets reached (up to '+fmtFull(last.target)+')</div></div></div></div>';
+    }
+    const cur=resolveGoalValue(active,invVal,emg,re,curSal,total);
+    const pct=hideAmounts?0:Math.min(cur/active.target*100,100),reached=cur>=active.target,srcLabel=resolveGoalSourceLabel(active),isManual=(active.source||'auto')==='manual';
+    const tierLabel=group.entries.length>1?' — target '+(group.entries.indexOf(active)+1)+' of '+group.entries.length:'';
+    let h='<div class="card" style="border-color:'+color+'55">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px"><div><span class="goal-cat" style="background:'+color+'22;color:'+color+'">'+(active.cat||'custom').toUpperCase()+'</span><div style="font-size:15px;font-weight:700;margin-top:6px">'+group.name+tierLabel+'</div>';
+    if(active.note)h+='<div style="font-size:12px;color:#aaa;margin-top:2px">'+active.note+'</div>';
+    h+='<div style="font-size:10px;color:#bbb;margin-top:2px">📎 '+srcLabel+'</div></div>';
+    h+='<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+color+'">'+(hideAmounts?H:fmtFull(cur)+' / '+fmtFull(active.target))+'</div><div style="font-size:12px;color:#aaa">'+(hideAmounts?'•••%':pct.toFixed(1)+'%')+' · '+fmtFull(Math.max(0,active.target-cur))+' left</div></div></div>';
+    h+='<div class="progress" style="height:10px;border-radius:99px;margin-bottom:'+(isManual?'10':'12')+'px"><div class="progress-fill" style="width:'+pct+'%;background:'+color+';height:10px;border-radius:99px"></div></div>';
+    if(isManual){
+      h+='<div style="display:flex;gap:6px;margin-bottom:12px"><input type="number" id="gv-manual-'+active.id+'" value="'+(active.manualValue||0)+'" placeholder="Type current amount" style="flex:1;border:1px solid #e0ded8;border-radius:6px;padding:7px 10px;font-size:13px;outline:none"><button class="btn btn-ghost btn-sm" data-gid="'+active.id+'" onclick="updateGoalManualValue(this.dataset.gid,document.getElementById(\'gv-manual-'+active.id+'\').value)">Update</button></div>';
+    }
+    h+='<button class="btn '+(reached?'btn-primary':'btn-ghost')+'" style="width:100%" data-gid="'+active.id+'" onclick="markGoalDone(this.dataset.gid)">✓ '+(reached?'Mark Complete & Next Target':'Mark Done Anyway & Next Target')+'</button>';
+    h+='</div>';
+    return h;
   }
-  let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><div style="font-size:13px;color:#666">'+doneCount+' milestone'+(doneCount!==1?'s':'')+' reached</div><div style="font-size:12px;color:#aaa">Chain: '+Object.keys(DB.chainHits).length+'/'+PORTFOLIO_CHAIN.length+'</div></div>';
+  function gEntryEdit(g,idx,count){
+    const srcs=getGoalSources(g.name);
+    const done=!!(DB.goalHits||{})[g.id];
+    let h='<div class="goal-row" style="flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px'+(done?';opacity:.6':'')+'"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:11px;color:#aaa;font-weight:600">Target '+(idx+1)+' of '+count+(done?' · done':'')+'</span>'+(done?'<button class="btn-ghost btn-sm" style="padding:3px 8px;margin-left:auto" data-gid="'+g.id+'" onclick="unmarkGoalDone(this.dataset.gid)">↺ Reopen</button>':'')+'</div>';
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><div style="flex:2;min-width:120px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Name</label><input type="text" id="ge-name-'+g.id+'" value="'+g.name.replace(/'/g,"&#39;")+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div><div style="flex:1;min-width:100px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Target (฿)</label><input type="number" id="ge-target-'+g.id+'" value="'+g.target+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div><div style="flex:1;min-width:100px"><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Category</label><select id="ge-cat-'+g.id+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none">'+['portfolio','emergency','income','realestate','custom'].map(c=>'<option'+(c===g.cat?' selected':'')+'>'+c+'</option>').join('')+'</select></div></div>';
+    h+='<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Note</label><input type="text" id="ge-note-'+g.id+'" value="'+(g.note||'').replace(/'/g,"&#39;")+'" placeholder="Why this matters" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div>';
+    h+='<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Value Source</label><select id="ge-src-'+g.id+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none">';
+    srcs.forEach(function(s){h+='<option value="'+s.v+'"'+(s.v===(g.source||'auto')?' selected':'')+'>'+s.l+'</option>';});
+    h+='</select></div>';
+    h+='<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Manual value (only used if Value Source = Manual entry)</label><input type="number" id="ge-manual-'+g.id+'" value="'+(g.manualValue||0)+'" style="width:100%;border:1px solid #e0ded8;border-radius:5px;padding:6px 8px;font-size:13px;outline:none"></div>';
+    h+='<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" data-gid="'+g.id+'" onclick="saveGoalEdit(this.dataset.gid)">✓ Save</button><button class="del-btn" style="margin-left:auto;padding:5px 10px" data-gid="'+g.id+'" onclick="delGoal(this.dataset.gid)">✕ Delete</button></div></div>';
+    return h;
+  }
+  function gGroupEdit(group,groupIdx,groupCount){
+    let h='<div style="background:#fff7ed;border:1px solid #fde68a;border-radius:9px;padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-weight:700;font-size:13px">'+group.name+'</div><span style="font-size:10px;color:#aaa">'+group.entries.length+' target'+(group.entries.length!==1?'s':'')+'</span><div style="display:flex;gap:2px;margin-left:auto"><button class="btn-icon" data-gk="'+group.key+'" onclick="moveGoalGroup(this.dataset.gk,-1)">↑</button><button class="btn-icon" data-gk="'+group.key+'" onclick="moveGoalGroup(this.dataset.gk,1)">↓</button></div></div>';
+    group.entries.forEach(function(g,i){h+=gEntryEdit(g,i,group.entries.length);});
+    h+='<button class="btn btn-ghost btn-sm" data-gname="'+group.name.replace(/"/g,'&quot;')+'" onclick="prefillGoalName(this.dataset.gname)">+ Add another target to "'+group.name+'"</button>';
+    h+='</div>';
+    return h;
+  }
+  let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px"><div style="font-size:13px;color:#666">'+doneCount+' target'+(doneCount!==1?'s':'')+' completed</div><button class="btn '+(goalsEditMode?'btn-primary':'btn-ghost')+' btn-sm" onclick="toggleGoalsEdit()">'+(goalsEditMode?'✓ Done':'✏ Edit Goals')+'</button></div>';
   html+='<div class="card" style="border-color:#bfdbfe;border-width:1.5px;margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px"><div><div class="card-title" style="margin:0;color:#1d4ed8">🏦 Emergency Fund</div><div style="font-size:11px;color:#aaa;margin-top:2px">'+fmtFull(es.expense)+' × '+es.months+' months = target '+fmtFull(emgTarget)+'</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:'+(emgDone?'#16a34a':'#3b82f6')+'">'+fmtFull(emg)+'</div><div style="font-size:12px;color:#aaa">'+(hideAmounts?'•••%':emgPct.toFixed(1)+'%')+' · '+(emgDone?'✓ Complete':'฿'+Math.round(emgTarget-emg).toLocaleString()+' left')+'</div></div></div>';
   html+='<div class="progress" style="height:10px;border-radius:99px;margin-bottom:12px"><div class="progress-fill" style="width:'+emgPct+'%;background:'+(emgDone?'#16a34a':'#3b82f6')+';height:10px;border-radius:99px"></div></div>';
   html+='<div style="background:#f0f9ff;border-radius:8px;padding:10px 12px"><div style="font-size:11px;font-weight:600;color:#1d4ed8;margin-bottom:8px">Customize target</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><div style="flex:1;min-width:120px"><label>Monthly expense (฿)</label><input type="number" id="emg-expense" value="'+es.expense+'" placeholder="15000" style="border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;font-size:13px;outline:none;width:100%"></div><div style="flex:1;min-width:90px"><label>Months to cover</label><input type="number" id="emg-months" value="'+es.months+'" min="1" max="24" style="border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;font-size:13px;outline:none;width:100%"></div><button class="btn btn-primary btn-sm" onclick="saveEmergencySettings()">Update</button></div><div style="font-size:11px;color:#aaa;margin-top:6px">Update balance in Net Worth → FIRE Snapshot → Emergency Fund field.</div></div></div>';
-  html+='<div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-weight:600">Portfolio Chain</div>';
-  if(lastDone)html+=gRow(Object.assign({},lastDone,{cat:'portfolio'}),total,DB.chainHits[lastDone.id]);
-  if(nextGoal)html+=gRow(Object.assign({},nextGoal,{cat:'portfolio'}),total,null);
-  else html+='<div class="goal-row" style="background:#f0fdf4;border-color:#bbf7d0"><span style="color:#166534;font-weight:700">🎉 All milestones reached!</span></div>';
-  html+='<div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.1em;margin:14px 0 6px;font-weight:600">Other Goals</div>';
-  (DB.goals||DEFAULT_GOALS).filter(g=>g.cat!=='emergency').forEach(function(g){const cur=resolveGoalValue(g,btcVal,emg,re,curSal,total);html+=gRow(g,cur,(DB.goalHits||{})[g.id]);});
-  if(!editingGoalId)html+='<div class="card" style="margin-top:12px"><div class="card-title">Add Custom Goal</div>';
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:2;min-width:140px"><label>Name</label><input type="text" id="g-name" placeholder="Match asset or investment name to auto-link"></div><div style="flex:1;min-width:100px"><label>Target (฿)</label><input type="number" id="g-target" placeholder="250000"></div><div style="flex:1;min-width:80px"><label>Category</label><select id="g-cat">'+['portfolio','bitcoin','income','realestate','custom'].map(c=>'<option>'+c+'</option>').join('')+'</select></div><div style="flex:1;min-width:100px"><label>Note</label><input type="text" id="g-note" placeholder="optional"></div><button class="btn btn-primary btn-sm" onclick="addGoal()">+ Add</button></div>';
-  html+='<div style="font-size:11px;color:#aaa;margin-top:8px">💡 Name the goal the same as a Net Worth asset or Investment → value links automatically.</div></div>';
+  html+='<div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-weight:600">'+(goalsEditMode?'All Goals — use ↑↓ to reorder which shows first':'Goals')+'</div>';
+  if(groups.length===0){
+    html+='<div style="color:#bbb;font-size:13px;text-align:center;padding:14px">No goals yet — add one below.</div>';
+  } else if(goalsEditMode){
+    groups.forEach(function(g,idx){html+=gGroupEdit(g,idx,groups.length);});
+  } else {
+    groups.forEach(function(g){html+=gGroupView(g);});
+  }
+  html+='<div class="card" style="margin-top:12px"><div class="card-title">Add Custom Goal</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:2;min-width:140px"><label>Name</label><input type="text" id="g-name" placeholder="Match a Net Worth asset name to auto-link"></div><div style="flex:1;min-width:100px"><label>Target (฿)</label><input type="number" id="g-target" placeholder="250000"></div><div style="flex:1;min-width:80px"><label>Category</label><select id="g-cat">'+['portfolio','income','realestate','custom'].map(c=>'<option>'+c+'</option>').join('')+'</select></div><div style="flex:1;min-width:100px"><label>Note</label><input type="text" id="g-note" placeholder="optional"></div><button class="btn btn-primary btn-sm" onclick="addGoal()">+ Add</button></div>';
+  html+='<div style="font-size:11px;color:#aaa;margin-top:8px">💡 Same name + different targets = a chain (lowest target shows first, then the next once it\'s done). Name it the same as a Net Worth asset or Investment to auto-link its value, or leave it unmatched and choose "Manual entry" in Edit mode to type the amount yourself.</div></div>';
   document.getElementById('content').innerHTML=html;
 }
-function editGoal(id){editingGoalId=(editingGoalId===id?null:id);renderGoals();}
-function saveGoalEdit(id){const g=(DB.goals||[]).find(g=>g.id===id);if(!g)return;const ne=document.getElementById('ge-name-'+id),te=document.getElementById('ge-target-'+id),no=document.getElementById('ge-note-'+id),se=document.getElementById('ge-src-'+id),ce=document.getElementById('ge-cat-'+id);if(ne&&ne.value.trim())g.name=ne.value.trim();if(te&&parseFloat(te.value))g.target=parseFloat(te.value);if(no)g.note=no.value;if(se)g.source=se.value;if(ce)g.cat=ce.value;editingGoalId=null;save();checkGoals();renderGoals();}
-function addGoal(){const name=document.getElementById('g-name').value.trim(),target=parseFloat(document.getElementById('g-target').value)||0,cat=document.getElementById('g-cat').value,note=document.getElementById('g-note').value;if(!name||!target)return;if(!DB.goals)DB.goals=[];const srcs=getGoalSources(name),src=srcs.length>1?'auto':'cat';DB.goals.push({id:uid(),name,target,cat,note,source:src,custom:true});save();renderGoals();}
-function delGoal(id){DB.goals=(DB.goals||[]).filter(g=>g.id!==id);if(DB.goalHits)delete DB.goalHits[id];editingGoalId=null;save();renderGoals();}
+function prefillGoalName(name){const el=document.getElementById('g-name');if(el){el.value=name;el.scrollIntoView({behavior:'smooth',block:'center'});const t=document.getElementById('g-target');if(t)t.focus();}}
+// Manually finish the active target in its chain (works even if the
+// numeric value hasn't technically reached it yet) and reveal the next
+// target in that same-name chain, if any.
+function markGoalDone(id){if(!DB.goalHits)DB.goalHits={};DB.goalHits[id]=new Date().toISOString().slice(0,10);save();renderGoals();toast('Target complete','ok');}
+function unmarkGoalDone(id){if(DB.goalHits)delete DB.goalHits[id];save();renderGoals();}
+function saveGoalEdit(id){const g=(DB.goals||[]).find(g=>g.id===id);if(!g)return;const ne=document.getElementById('ge-name-'+id),te=document.getElementById('ge-target-'+id),no=document.getElementById('ge-note-'+id),se=document.getElementById('ge-src-'+id),ce=document.getElementById('ge-cat-'+id),me=document.getElementById('ge-manual-'+id);if(ne&&ne.value.trim())g.name=ne.value.trim();if(te&&parseFloat(te.value))g.target=parseFloat(te.value);if(no)g.note=no.value;if(se)g.source=se.value;if(ce)g.cat=ce.value;if(me)g.manualValue=parseFloat(me.value)||0;save();checkGoals();renderGoals();}
+function addGoal(){const name=document.getElementById('g-name').value.trim(),target=parseFloat(document.getElementById('g-target').value)||0,cat=document.getElementById('g-cat').value,note=document.getElementById('g-note').value;if(!name||!target)return;if(!DB.goals)DB.goals=[];const srcs=getGoalSources(name),src=srcs.some(s=>s.v==='asset'||s.v==='investment')?'auto':'cat';DB.goals.push({id:uid(),name,target,cat,note,source:src,manualValue:0,custom:true});save();renderGoals();}
+function delGoal(id){DB.goals=(DB.goals||[]).filter(g=>g.id!==id);if(DB.goalHits)delete DB.goalHits[id];save();renderGoals();}
 
 // ─────────────────────────────────────────────────────
-// PAGE: CREDIT CARDS
+// PAGE: CREDIT CARDS (embedded inside Monthly Overview)
 // ─────────────────────────────────────────────────────
 const CARD_COLORS=['#2563eb','#16a34a','#dc2626','#7c3aed','#ea580c','#0891b2'];
 function renderCreditCardsSection(month){
   const cards=DB.creditCards||[];const[yr,mo]=month.split('-').map(Number);const today=new Date();const todayDay=today.getDate();
   let h='<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div class="card-title" style="margin:0">💳 Credit Cards</div><button class="btn btn-ghost btn-sm" onclick="toggleAddCard()">+ Add Card</button></div>';
-  h+='<div id="add-card-form" style="display:none;background:#f7f6f3;border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:8px">New Card</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:2;min-width:120px"><label>Card Name</label><input type="text" id="cc-name" placeholder="KBank Visa"></div><div style="flex:1;min-width:100px"><label>Credit Limit (฿)</label><input type="number" id="cc-limit" placeholder="50000"></div><div style="flex:1;min-width:80px"><label>Statement Day</label><input type="number" id="cc-stmt" min="1" max="31" placeholder="25"></div><div style="flex:1;min-width:80px"><label>Due Day</label><input type="number" id="cc-due" min="1" max="31" placeholder="15"></div><div style="flex:0"><label>Color</label><select id="cc-color" style="padding:6px 8px;border:1px solid #e0ded8;border-radius:5px;font-size:13px">'+CARD_COLORS.map((c,i)=>'<option value="'+c+'">Color '+(i+1)+'</option>').join('')+'</select></div><div style="flex:1;min-width:100px"><label>Note</label><input type="text" id="cc-note" placeholder="optional"></div><button class="btn btn-primary btn-sm" onclick="addCreditCard()">Add</button></div></div>';
+  h+='<div id="add-card-form" style="display:none;background:#f7f6f3;border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:8px">New Card</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div style="flex:2;min-width:120px"><label>Card Name</label><input type="text" id="cc-name" placeholder="Bank Visa"></div><div style="flex:1;min-width:100px"><label>Credit Limit (฿)</label><input type="number" id="cc-limit" placeholder="50000"></div><div style="flex:1;min-width:80px"><label>Statement Day</label><input type="number" id="cc-stmt" min="1" max="31" placeholder="25"></div><div style="flex:1;min-width:80px"><label>Due Day</label><input type="number" id="cc-due" min="1" max="31" placeholder="15"></div><div style="flex:0"><label>Color</label><select id="cc-color" style="padding:6px 8px;border:1px solid #e0ded8;border-radius:5px;font-size:13px">'+CARD_COLORS.map((c,i)=>'<option value="'+c+'">Color '+(i+1)+'</option>').join('')+'</select></div><div style="flex:1;min-width:100px"><label>Note</label><input type="text" id="cc-note" placeholder="optional"></div><button class="btn btn-primary btn-sm" onclick="addCreditCard()">Add</button></div></div>';
   if(cards.length===0){h+='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">No credit cards yet.</div>';}
   else{
     h+='<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin-bottom:12px">';
@@ -1132,12 +1274,12 @@ function addCreditCard(){const name=(document.getElementById('cc-name')||{}).val
 function delCreditCard(id){DB.creditCards=(DB.creditCards||[]).filter(c=>c.id!==id);(DB.transactions||[]).forEach(t=>{if(t.cardId===id)delete t.cardId;});save();renderMonthlyBody();}
 
 // ─────────────────────────────────────────────────────
-// CSV IMPORT
+// SECTION: CSV IMPORT
 // ─────────────────────────────────────────────────────
 function parseCSVLine(line){const result=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){result.push(cur.trim());cur='';}else cur+=c;}result.push(cur.trim());return result;}
 function parseImportDate(s){if(!s)return null;s=s.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m1=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);if(m1){let[,d,mo,y]=m1;if(y.length===2)y='20'+y;let yr=parseInt(y);if(yr>2400)yr-=543;return yr+'-'+mo.padStart(2,'0')+'-'+d.padStart(2,'0');}return null;}
 // ─────────────────────────────────────────────────────
-// PHOTO IMPORT — extract transactions from screenshots
+// SECTION: PHOTO IMPORT — extract transactions from screenshots
 // using free on-device OCR (Tesseract.js, no API/cost).
 // Supports two screenshot styles:
 // (1) category summary (one row per category, total only)
@@ -1153,7 +1295,6 @@ function _thaiSkeleton(s){
 }
 function parsePhotoOcrText(fullText){
   const lines=fullText.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
-  // Find a header like "มิ.ย. 69" to establish month/year context (BE year - 543 = CE year)
   let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1;
   const headerRe=new RegExp(_thaiMonthRegex().source+'\\s*(\\d{2,4})');
   for(let i=0;i<lines.length;i++){
@@ -1192,15 +1333,11 @@ function parsePhotoOcrText(fullText){
     }
     if(useCat){
       let merchant='',note='',amt=0,consumed=0;
-      // Category-summary layout: category name + amount often OCR'd as one line, e.g. "@' บ้าน, สาธารณูปโภค  8,173.45 >"
-      // OCR can add icon-glyph noise before the category and stray characters (like the ">" chevron) after the amount,
-      // so pull out the LAST number-like token anywhere on the line rather than anchoring to line start/end.
       const numsOnLine=line.match(/\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?/g);
       if(numsOnLine&&numsOnLine.length>0){
         const candidate=parseFloat(numsOnLine[numsOnLine.length-1].replace(/,/g,''))||0;
         if(candidate>0)amt=candidate;
       }
-      // Transaction-detail layout: category on its own line, look ahead for merchant/note/amount
       if(amt===0){
         for(let j=i+1;j<Math.min(i+4,lines.length);j++){
           const numsAhead=lines[j].match(/\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?/g);
@@ -1319,7 +1456,6 @@ function confirmPhotoImport(){
   renderMonthly();
   toast('Added '+rows.length+' transaction'+(rows.length!==1?'s':''),'ok');
 }
-
 function importCSV(){
   const el=document.getElementById('csv-file-input');if(!el||!el.files[0])return toast('Select a CSV file first','err');
   const reader=new FileReader();
@@ -1328,227 +1464,44 @@ function importCSV(){
 }
 
 // ─────────────────────────────────────────────────────
-// PAGE: FIRE OVERVIEW
+// SECTION: DATA MODAL (import/export combined, top-right)
 // ─────────────────────────────────────────────────────
-let fireSettingsOpen=false;
-function toggleFireSettings(){fireSettingsOpen=!fireSettingsOpen;renderPortfolio();}
-function saveFireSettings(){
-  const age=parseInt(document.getElementById('fs-age').value)||23,retAge=parseInt(document.getElementById('fs-ret-age').value)||40,exp=parseFloat(document.getElementById('fs-expense').value)||16000,infl=Math.max(1,parseFloat(document.getElementById('fs-infl').value)||10);
-  if(retAge<=age)return toast('Retire age must be greater than current age','err');
-  DB.fireSettings={monthlyExpense:exp,inflationRate:infl,currentAge:age,retireAge:retAge,setupDone:true};save();fireSettingsOpen=false;renderPortfolio();toast('FIRE settings updated','ok');
+function showDataModal(){
+  const sel=document.getElementById('exp-month');if(sel){sel.innerHTML='';const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();if(months.length===0)months.push(activeMonth);months.forEach(function(m){const o=document.createElement('option');o.value=m;o.textContent=monthLabel(m);sel.appendChild(o);});}
+  document.getElementById('data-modal').classList.add('open');
 }
-function renderPortfolio(){
-  const{emg,gold,rmf,re,btcVal}=getFireData();const total=portfolioTotal();const fireTarget=getFireTarget();
-  const fs=DB.fireSettings||{monthlyExpense:16000,inflationRate:10,currentAge:23,retireAge:40};
-  const years=Math.max(1,(fs.retireAge||40)-(fs.currentAge||23));const expAtRetire=(fs.monthlyExpense||16000)*Math.pow(1+(fs.inflationRate||10)/100,years);
-  const snaps=[...DB.portfolio].sort((a,b)=>a.date.localeCompare(b.date));
-  let html='';
-  html+='<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:12px"><div><div style="font-size:26px;font-weight:800">'+fmt(total)+'</div><div style="font-size:12px;color:#aaa;margin-top:2px">Total Portfolio</div></div><div style="text-align:right"><div style="font-size:12px;color:#aaa">FIRE at '+(fs.retireAge||40)+' ('+(fs.inflationRate||10)+'% inflation)</div><div style="font-size:22px;font-weight:800;color:#F7931A">'+(hideAmounts?'•••%':((total/fireTarget)*100).toFixed(2)+'%')+'</div><div style="font-size:12px;color:#aaa">'+fmt(fireTarget-total)+' remaining · target '+fmt(fireTarget)+'</div></div></div>';
-  html+='<div class="progress" style="height:12px;border-radius:99px"><div class="progress-fill" style="width:'+(hideAmounts?0:Math.min(total/fireTarget*100,100))+'%;background:linear-gradient(90deg,#F7931A,#f59e0b);height:12px;border-radius:99px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-top:4px"><span>฿0</span><span>'+fmtFull(fireTarget)+' target</span></div></div>';
-  // FIRE settings collapsible
-  html+='<div class="card" style="margin-bottom:12px;border-color:'+(fireSettingsOpen?'#F7931A':'#e8e6e0')+'"><div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleFireSettings()"><div><div class="card-title" style="margin:0">⚙️ FIRE Calculator Settings</div><div style="font-size:11px;color:#aaa;margin-top:2px">Age '+(fs.currentAge||23)+' → '+(fs.retireAge||40)+' · ฿'+Math.round(fs.monthlyExpense||16000).toLocaleString()+'/mo · '+(fs.inflationRate||10)+'% infl · target '+fmt(fireTarget)+'</div></div><div style="font-size:11px;color:#F7931A;font-weight:600">'+(fireSettingsOpen?'▲ Close':'▼ Edit')+'</div></div>';
-  if(fireSettingsOpen){html+='<div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0eeeb"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label>Current Age</label><input type="number" id="fs-age" value="'+(fs.currentAge||23)+'" min="16" max="80" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"></div><div><label>Target Retire Age</label><input type="number" id="fs-ret-age" value="'+(fs.retireAge||40)+'" min="20" max="80" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label>Monthly Expenses (฿)</label><input type="number" id="fs-expense" value="'+(fs.monthlyExpense||16000)+'" step="500" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"><div style="font-size:10px;color:#aaa;margin-top:3px">Current spending — not salary</div></div><div><label>Inflation Rate (%)</label><input type="number" id="fs-infl" value="'+(fs.inflationRate||10)+'" min="1" max="30" step="0.5" style="border:1.5px solid #e0ded8;border-radius:6px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;width:100%"><div style="font-size:10px;color:#aaa;margin-top:3px">Min 10% recommended</div></div></div>';html+='<div style="background:#fff7ed;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400e">At age '+(fs.retireAge||40)+', expenses ~฿'+Math.round(expAtRetire).toLocaleString()+'/mo · FIRE = ฿'+Math.round(fireTarget).toLocaleString()+'</div>';html+='<button class="btn btn-primary btn-sm" onclick="saveFireSettings()">Save Settings</button></div>';}
-  html+='</div>';
-  html+='<div class="grid-2" style="margin-bottom:12px"><div class="card" style="display:flex;flex-direction:column;align-items:center"><div class="card-title" style="align-self:flex-start">Asset Breakdown</div>'+(total>0&&!hideAmounts?'<canvas id="pie-chart" style="max-width:200px;max-height:200px"></canvas>':'<div style="color:#bbb;font-size:13px;padding:30px;text-align:center">Add data to see chart</div>')+'</div>';
-  html+='<div class="card"><div class="card-title">Portfolio Detail</div>';
-  [['Bitcoin',btcVal,'#F7931A'],['Emergency Fund',emg,'#3b82f6'],['Gold',gold,'#ca8a04'],['RMF / SSF',rmf,'#6b7280'],['Real Estate Fund',re,'#8b5cf6']].filter(function(r){return r[1]>0;}).forEach(function(r){html+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f4f3ef"><div style="width:10px;height:10px;border-radius:50%;background:'+r[2]+';flex-shrink:0"></div><div style="flex:1;font-size:13px">'+r[0]+'</div><div style="font-weight:700;color:'+r[2]+'">'+fmtFull(r[1])+'</div><div style="font-size:11px;color:#aaa;min-width:36px;text-align:right">'+(hideAmounts?'•••':(total>0?(r[1]/total*100).toFixed(1)+'%':'—'))+'</div></div>';});
-  if(total===0)html+='<div style="color:#bbb;text-align:center;padding:20px;font-size:13px">No data — save a snapshot in Net Worth.</div>';html+='</div></div>';
-  if(snaps.length>1)html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Portfolio Growth</div><canvas id="growth-chart" style="max-height:200px"></canvas></div>';
-  html+='<div class="card" style="margin-bottom:12px"><div class="card-title">Milestone Progress</div>';
-  PORTFOLIO_CHAIN.forEach(function(g){const done=!!(DB.chainHits||{})[g.id],pct=hideAmounts?0:Math.min(total/g.target*100,100);html+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span style="font-weight:600;'+(done?'color:#16a34a':'')+'">'+g.name+'</span><span style="color:#aaa">'+(hideAmounts?'•••':pct.toFixed(1)+'%')+'</span></div><div class="progress" style="height:9px"><div class="progress-fill" style="width:'+pct+'%;background:'+(done?'#16a34a':'#F7931A')+';height:9px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-top:2px"><span>'+fmtFull(total)+'</span><span>'+fmtFull(g.target)+(done?' · reached '+(DB.chainHits||{})[g.id]:' · '+fmt(g.target-total)+' left')+'</span></div></div>';});html+='</div>';
-  html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div class="card-title" style="margin:0">Snapshot History</div><a href="#" onclick="navigate(\'networth\')" style="font-size:12px;color:#F7931A">+ Add snapshot →</a></div>';
-  html+='<div class="tbl-wrap"><table><thead><tr><th>Month</th><th>Emergency</th><th>Bitcoin</th><th>Gold</th><th>RMF</th><th>RE Fund</th><th>Total</th><th></th></tr></thead><tbody>';
-  if(DB.portfolio.length===0){html+='<tr><td colspan="8" style="color:#bbb;text-align:center;padding:18px">No snapshots yet.</td></tr>';}
-  else{[...DB.portfolio].reverse().forEach(function(e){const t=['emergency','bitcoin','gold','rmf','realEstate'].reduce((s,k)=>s+(parseFloat(e[k])||0),0);html+='<tr><td><strong>'+e.date+'</strong></td><td>'+fmtFull(e.emergency)+'</td><td style="color:#F7931A;font-weight:600">'+fmtFull(e.bitcoin)+'</td><td>'+fmtFull(e.gold)+'</td><td>'+fmtFull(e.rmf)+'</td><td style="color:#8b5cf6">'+fmtFull(e.realEstate||0)+'</td><td><strong>'+fmt(t)+'</strong></td><td><button class="del-btn" onclick="delPortfolio(\''+e.id+'\')">✕</button></td></tr>';});}
-  html+='</tbody></table></div></div>';
-  document.getElementById('content').innerHTML=html;
-  const pieCtx=document.getElementById('pie-chart');
-  if(pieCtx&&total>0&&!hideAmounts){const labels=[],data=[],colors=[];if(btcVal>0){labels.push('Bitcoin');data.push(Math.round(btcVal));colors.push('#F7931A');}if(emg>0){labels.push('Emergency');data.push(emg);colors.push('#3b82f6');}if(gold>0){labels.push('Gold');data.push(gold);colors.push('#ca8a04');}if(rmf>0){labels.push('RMF');data.push(rmf);colors.push('#6b7280');}if(re>0){labels.push('Real Estate');data.push(re);colors.push('#8b5cf6');}try{activeChart=new Chart(pieCtx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}});}catch(e){console.warn('Chart error:',e);}}
-  const growthCtx=document.getElementById('growth-chart');
-  if(growthCtx&&snaps.length>1&&!hideAmounts){const labels=snaps.map(s=>s.date),totals=snaps.map(s=>['emergency','bitcoin','gold','rmf','realEstate'].reduce((sum,k)=>sum+(parseFloat(s[k])||0),0));try{activeChart2=new Chart(growthCtx,{type:'line',data:{labels,datasets:[{label:'Portfolio',data:totals,borderColor:'#F7931A',backgroundColor:'rgba(247,147,26,.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fmt(v);}}}}}});}catch(e){console.warn('Chart2 error:',e);}}
-}
-function delPortfolio(id){DB.portfolio=DB.portfolio.filter(p=>p.id!==id);save();renderPortfolio();}
-
-// ─────────────────────────────────────────────────────
-// EXPORT / IMPORT
-// ─────────────────────────────────────────────────────
-function showExportModal(){const sel=document.getElementById('exp-month');if(sel){sel.innerHTML='';const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();if(months.length===0)months.push(activeMonth);months.forEach(function(m){const o=document.createElement('option');o.value=m;o.textContent=monthLabel(m);sel.appendChild(o);});}document.getElementById('export-modal').classList.add('open');}
-function closeExportModal(){document.getElementById('export-modal').classList.remove('open');}
+function closeDataModal(){document.getElementById('data-modal').classList.remove('open');}
 function exportData(){const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(DB,null,2));a.download='finance_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();}
-function importData(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const imp=JSON.parse(ev.target.result);if(typeof imp!=='object'||Array.isArray(imp))return toast('Invalid backup file.','err');localStorage.setItem(SK,JSON.stringify(imp));DB=initDB();toast('Imported ✓ — '+((imp.transactions||[]).length)+' txn, '+((imp.btcEntries||[]).length)+' BTC entries','ok');navigate('dashboard');}catch(err){console.error('Import error:',err);toast('Invalid or corrupted file.','err');}};r.readAsText(f,'utf-8');};inp.click();}
+function importData(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const imp=JSON.parse(ev.target.result);if(typeof imp!=='object'||Array.isArray(imp))return toast('Invalid backup file.','err');localStorage.setItem(SK,JSON.stringify(imp));DB=initDB();toast('Imported ✓ — '+((imp.transactions||[]).length)+' txn','ok');closeDataModal();navigate('dashboard');}catch(err){console.error('Import error:',err);toast('Invalid or corrupted file.','err');}};r.readAsText(f,'utf-8');};inp.click();}
 function reportCSS(){return 'body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 20px;color:#1a1917;background:#f9f8f5}h1{color:#F7931A;border-bottom:2px solid #F7931A;padding-bottom:8px}h2{color:#555;margin:28px 0 10px;font-size:15px;text-transform:uppercase;letter-spacing:.06em}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px}th{background:#f0efe8;padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;color:#777}td{padding:7px 10px;border-bottom:1px solid #ece9e1}.summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}.s-card{background:#fff;border:1px solid #e8e6e0;border-radius:8px;padding:12px 16px;min-width:120px}.s-label{font-size:11px;color:#999;text-transform:uppercase}.s-val{font-size:20px;font-weight:700}pre{background:#fff;border:1px solid #e8e6e0;border-radius:8px;padding:14px;white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6}';}
-function exportMonthlyReport(){const month=document.getElementById('exp-month').value;const txs=txM(month),incs=incM(month),notes=DB.notes[month]||{};const sp=spentM(month),inv=investM(month),inc=incTotalM(month);const snap=DB.portfolio.find(p=>p.date===month)||DB.portfolio.at(-1);let body='<h1>Finance Report — '+monthLabel(month)+'</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Account: '+currentUsername+'</p><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(inc).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(sp).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Invested</div><div class="s-val" style="color:#F7931A">฿'+Math.round(inv).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Balance</div><div class="s-val">฿'+Math.round(inc-sp-inv).toLocaleString()+'</div></div></div>';body+='<h2>Income</h2><table><thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Note</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td><td>'+(i.note||'')+'</td></tr>';});if(incs.length===0)body+='<tr><td colspan="4" style="color:#bbb">No income</td></tr>';body+='</tbody></table>';body+='<h2>Transactions</h2><table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});if(txs.length===0)body+='<tr><td colspan="4" style="color:#bbb">No transactions</td></tr>';body+='</tbody></table>';body+='<h2>Budget Plan</h2><table><thead><tr><th>Category</th><th>Item</th><th>Budget</th></tr></thead><tbody>';getBudgetForMonth(month).forEach(function(b){body+='<tr><td>'+b.cat+'</td><td>'+b.item+'</td><td>฿'+Math.round(b.alloc).toLocaleString()+'</td></tr>';});body+='</tbody></table>';if(snap){body+='<h2>Portfolio Snapshot ('+snap.date+')</h2><table><thead><tr><th>Asset</th><th>Value</th></tr></thead><tbody>';[['Bitcoin',snap.bitcoin],['Emergency Fund',snap.emergency],['Gold',snap.gold],['RMF/SSF',snap.rmf],['Real Estate Fund',snap.realEstate]].forEach(function(r){body+='<tr><td>'+r[0]+'</td><td>฿'+Math.round(r[1]||0).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(notes.good)body+='<h2>What Went Well</h2><pre>'+notes.good+'</pre>';if(notes.improve)body+='<h2>To Improve</h2><pre>'+notes.improve+'</pre>';const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Report — '+monthLabel(month)+'</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_'+month+'.html';a.click();closeExportModal();}
-function exportReadableArchive(){const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();let body='<h1>Finance Archive</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Read-only</p>';const latest=DB.portfolio.at(-1);if(latest){body+='<h2>Latest Portfolio ('+latest.date+')</h2><div class="summary">';[['Bitcoin',latest.bitcoin,'#F7931A'],['Emergency',latest.emergency,'#3b82f6'],['Gold',latest.gold,'#ca8a04'],['RMF',latest.rmf,'#6b7280'],['RE Fund',latest.realEstate,'#8b5cf6']].forEach(function(r){body+='<div class="s-card"><div class="s-label">'+r[0]+'</div><div class="s-val" style="color:'+r[2]+'">฿'+Math.round(r[1]||0).toLocaleString()+'</div></div>';});body+='</div>';}body+='<h2>Bitcoin Holdings</h2><div class="summary"><div class="s-card"><div class="s-label">Total Sat</div><div class="s-val" style="color:#F7931A">'+totalSat().toLocaleString()+' sat</div></div><div class="s-card"><div class="s-label">BTC</div><div class="s-val">'+(totalSat()/1e8).toFixed(8)+'</div></div><div class="s-card"><div class="s-label">Invested</div><div class="s-val">฿'+Math.round(totalBTCInvested()).toLocaleString()+'</div></div></div>';months.forEach(function(m){const txs=txM(m),incs=incM(m);if(txs.length===0&&incs.length===0)return;body+='<h2>'+monthLabel(m)+'</h2><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(incTotalM(m)).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(spentM(m)).toLocaleString()+'</div></div></div>';if(incs.length>0){body+='<table><thead><tr><th>Date</th><th>Source</th><th>Amount</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(txs.length>0){body+='<table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});body+='</tbody></table>';}const nt=DB.notes[m];if(nt&&nt.good)body+='<p><strong>What went well:</strong><br>'+nt.good.replace(/\n/g,'<br>')+'</p>';if(nt&&nt.improve)body+='<p><strong>To improve:</strong><br>'+nt.improve.replace(/\n/g,'<br>')+'</p>';});const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Archive</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_archive_'+new Date().toISOString().slice(0,10)+'.html';a.click();closeExportModal();}
+function exportMonthlyReport(){const month=document.getElementById('exp-month').value;const txs=txM(month),incs=incM(month),notes=DB.notes[month]||{};const sp=spentM(month),inv=investM(month),inc=incTotalM(month);const snap=DB.portfolio.find(p=>p.date===month)||DB.portfolio.at(-1);let body='<h1>Finance Report — '+monthLabel(month)+'</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Account: '+currentUsername+'</p><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(inc).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(sp).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Invested</div><div class="s-val" style="color:#F7931A">฿'+Math.round(inv).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Balance</div><div class="s-val">฿'+Math.round(inc-sp-inv).toLocaleString()+'</div></div></div>';body+='<h2>Income</h2><table><thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Note</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td><td>'+(i.note||'')+'</td></tr>';});if(incs.length===0)body+='<tr><td colspan="4" style="color:#bbb">No income</td></tr>';body+='</tbody></table>';body+='<h2>Transactions</h2><table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});if(txs.length===0)body+='<tr><td colspan="4" style="color:#bbb">No transactions</td></tr>';body+='</tbody></table>';body+='<h2>Budget Plan</h2><table><thead><tr><th>Category</th><th>Item</th><th>Budget</th></tr></thead><tbody>';getBudgetForMonth(month).forEach(function(b){body+='<tr><td>'+b.cat+'</td><td>'+b.item+'</td><td>฿'+Math.round(b.alloc).toLocaleString()+'</td></tr>';});body+='</tbody></table>';if(snap){body+='<h2>Portfolio Snapshot ('+snap.date+')</h2><table><thead><tr><th>Asset</th><th>Value</th></tr></thead><tbody>';[['Investments',snap.investments],['Emergency Fund',snap.emergency],['Gold',snap.gold],['RMF/SSF',snap.rmf],['Real Estate Fund',snap.realEstate]].forEach(function(r){body+='<tr><td>'+r[0]+'</td><td>฿'+Math.round(r[1]||0).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(notes.good)body+='<h2>What Went Well</h2><pre>'+notes.good+'</pre>';if(notes.improve)body+='<h2>To Improve</h2><pre>'+notes.improve+'</pre>';const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Report — '+monthLabel(month)+'</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_'+month+'.html';a.click();closeDataModal();}
+function exportReadableArchive(){const months=[...new Set([...DB.transactions.map(t=>t.date.slice(0,7)),...DB.income.map(i=>i.month)])].sort().reverse();let body='<h1>Finance Archive</h1><p style="color:#aaa;font-size:12px">Generated: '+new Date().toLocaleString()+' · Read-only</p>';const latest=DB.portfolio.at(-1);if(latest){body+='<h2>Latest Portfolio ('+latest.date+')</h2><div class="summary">';[['Investments',latest.investments,'#F7931A'],['Emergency',latest.emergency,'#3b82f6'],['Gold',latest.gold,'#ca8a04'],['RMF',latest.rmf,'#6b7280'],['RE Fund',latest.realEstate,'#8b5cf6']].forEach(function(r){body+='<div class="s-card"><div class="s-label">'+r[0]+'</div><div class="s-val" style="color:'+r[2]+'">฿'+Math.round(r[1]||0).toLocaleString()+'</div></div>';});body+='</div>';}months.forEach(function(m){const txs=txM(m),incs=incM(m);if(txs.length===0&&incs.length===0)return;body+='<h2>'+monthLabel(m)+'</h2><div class="summary"><div class="s-card"><div class="s-label">Income</div><div class="s-val" style="color:#16a34a">฿'+Math.round(incTotalM(m)).toLocaleString()+'</div></div><div class="s-card"><div class="s-label">Spent</div><div class="s-val" style="color:#dc2626">฿'+Math.round(spentM(m)).toLocaleString()+'</div></div></div>';if(incs.length>0){body+='<table><thead><tr><th>Date</th><th>Source</th><th>Amount</th></tr></thead><tbody>';incs.forEach(function(i){body+='<tr><td>'+i.date+'</td><td>'+i.src+'</td><td>฿'+Math.round(i.amt).toLocaleString()+'</td></tr>';});body+='</tbody></table>';}if(txs.length>0){body+='<table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Note</th></tr></thead><tbody>';txs.forEach(function(t){body+='<tr><td>'+t.date+'</td><td>'+(CAT_MAP[t.cat]||t.cat)+'</td><td>฿'+Math.round(t.amt).toLocaleString()+'</td><td>'+(t.note||'')+'</td></tr>';});body+='</tbody></table>';}const nt=DB.notes[m];if(nt&&nt.good)body+='<p><strong>What went well:</strong><br>'+nt.good.replace(/\n/g,'<br>')+'</p>';if(nt&&nt.improve)body+='<p><strong>To improve:</strong><br>'+nt.improve.replace(/\n/g,'<br>')+'</p>';});const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Finance Archive</title><style>'+reportCSS()+'</style></head><body>'+body+'</body></html>';const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='finance_archive_'+new Date().toISOString().slice(0,10)+'.html';a.click();closeDataModal();}
 
 // ─────────────────────────────────────────────────────
-// CLOUD SYNC — Firebase Realtime Database
-// Data path = /u/<pwHash> — isolated per account.
+// SECTION: ACCOUNT / CREDITS MODALS
 // ─────────────────────────────────────────────────────
-// ⚠️ Set your Firebase URL here:
-const FIREBASE_URL='https://fianance-fe078-default-rtdb.asia-southeast1.firebasedatabase.app';
-
-// Works in all browsers including WebKit/Safari — no AbortSignal needed
-function _fetchTimeout(url, opts, ms){
-  return Promise.race([
-    fetch(url, opts),
-    new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),ms))
-  ]);
+function showAccountModal(){document.getElementById('acct-modal-username').textContent=currentUsername||'—';document.getElementById('account-modal').classList.add('open');}
+function closeAccountModal(){document.getElementById('account-modal').classList.remove('open');}
+function showCreditsModal(){
+  // TODO(creator): set your real links here once you have them.
+  const pageLink=document.getElementById('credit-page-link');if(pageLink)pageLink.href='https://example.com/your-page';
+  const coffeeLink=document.getElementById('credit-coffee-link');if(coffeeLink)coffeeLink.href='https://buymeacoffee.com/your-handle';
+  document.getElementById('credits-modal').classList.add('open');
 }
-
-// Required Firebase rules (Realtime Database → Rules tab → Publish):
-// {
-//   "rules": {
-//     "u": {
-//       "$uid": { ".read": "true", ".write": "true" }
-//     }
-//   }
-// }
-
-let _lastPushAt=0;
-
-function _fbConfigured(){return!!(FIREBASE_URL&&currentPwHash);}
-function _fbUrl(){if(!_fbConfigured())return null;return FIREBASE_URL.replace(/\/+$/,'')+'/u/'+currentPwHash+'.json';}
-
-function updateSyncBadge(state,detail){
-  const btn=document.getElementById('sync-btn');if(!btn)return;
-  const map={ok:{bg:'#dcfce7',color:'#166534'},err:{bg:'#fee2e2',color:'#dc2626'},busy:{bg:'#fef9c3',color:'#854d0e'},off:{bg:'transparent',color:'#bbb'}};
-  const st=map[state]||map.off;
-  btn.style.background=st.bg;btn.style.color=st.color;
-  btn.dataset.syncState=state;btn.dataset.syncDetail=detail||'';
-}
-
-async function cloudPull(force){
-  const url=_fbUrl();if(!url){updateSyncBadge('off');return false;}
-  updateSyncBadge('busy');
-  try{
-    const r=await _fetchTimeout(url,{},8000);
-    if(!r.ok){
-      const body=await r.text().catch(()=>'');
-      const is403=r.status===401||r.status===403;
-      updateSyncBadge('err',is403?'Permission denied ('+r.status+') — publish Firebase rules (tap ☁ for help)':'HTTP '+r.status+': '+body.slice(0,100));
-      return false;
-    }
-    const data=await r.json();
-    if(!data||typeof data!=='object'||Array.isArray(data)){
-      updateSyncBadge('ok','No cloud data yet.');return false;
-    }
-    const safe=_sanitize(data);
-    const hasRemote=safe.transactions.length>0||safe.btcEntries.length>0||safe.income.length>0||safe.assets.length>0||safe.portfolio.length>0;
-    const hasLocal=DB.transactions.length>0||DB.btcEntries.length>0||DB.income.length>0;
-    // On auto-pull (startup): skip if cloud has no real data but local does
-    // On manual pull (force=true): always apply cloud data
-    if(!force&&!hasRemote&&hasLocal){
-      updateSyncBadge('ok','Cloud empty — local kept.');return false;
-    }
-    localStorage.setItem(SK,JSON.stringify(safe));DB=initDB();
-    updateSyncBadge('ok','Pulled '+new Date().toLocaleTimeString());return true;
-  }catch(e){
-    updateSyncBadge('err',e.message==='Timeout'?'Timed out':'Network: '+e.message);return false;
-  }
-}
-
-async function cloudPush(){
-  const url=_fbUrl();if(!url)return false;
-  const now=Date.now();if(now-_lastPushAt<5000)return false;
-  _lastPushAt=now;
-  try{
-    const r=await _fetchTimeout(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)},8000);
-    if(r.ok){updateSyncBadge('ok','Saved '+new Date().toLocaleTimeString());return true;}
-    else{const b=await r.text().catch(()=>'');updateSyncBadge('err','Push '+r.status+': '+b.slice(0,80));return false;}
-  }catch(e){updateSyncBadge('err',e.message==='Timeout'?'Push timed out':'Push: '+e.message);return false;}
-}
-
-// Sanitize data pulled from Firebase (converts null arrays back to [])
-function _sanitize(d){
-  d.transactions=_arr(d.transactions);d.income=_arr(d.income);d.btcEntries=_arr(d.btcEntries);
-  d.portfolio=_arr(d.portfolio);d.assets=_arr(d.assets);d.goals=_arr(d.goals,DEFAULT_GOALS);
-  d.customInvestments=_arr(d.customInvestments);d.creditCards=_arr(d.creditCards);
-  d.incomeSources=_arr(d.incomeSources,['Salary','Side / Amway','Freelance','Bitcoin gains','Other']);
-  d.budget=_arr(d.budget,DEFAULT_BUDGET);
-  d.goalHits=_obj(d.goalHits);d.chainHits=_obj(d.chainHits);d.budgetByMonth=_obj(d.budgetByMonth);
-  d.budgetPresets=_obj(d.budgetPresets);d.notes=_obj(d.notes);
-  d.tax=_obj(d.tax,{rmfManual:0,lifeIns:0,healthIns:0});
-  d.emergencySettings=_obj(d.emergencySettings,{expense:15000,months:6});
-  if(d.dcaAmount==null)d.dcaAmount=108;if(d.fireSettings===undefined)d.fireSettings=null;
-  d.customInvestments.forEach(iv=>{if(!Array.isArray(iv.entries))iv.entries=[];});
-  return d;
-}
-
-function showSyncModal(){
-  const btn=document.getElementById('sync-btn');
-  const state=btn?.dataset.syncState||'off';
-  const detail=btn?.dataset.syncDetail||'';
-  const ok=state==='ok',err=state==='err';
-  let h='<div id="sync-modal" onclick="if(event.target.id===\'sync-modal\')closeSyncModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px">';
-  h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:700">☁ Cloud Sync</div><button onclick="closeSyncModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">✕</button></div>';
-  const stBg={ok:'#f0fdf4',err:'#fef2f2',busy:'#fefce8',off:'#f4f3ef'};
-  const stTx={ok:'✓ Synced',err:'✗ Error',busy:'⟳ Syncing…',off:'○ Not configured'};
-  h+='<div style="background:'+(stBg[state]||stBg.off)+';border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-weight:600">'+(stTx[state]||'○ Unknown')+'</div>';
-  if(detail)h+='<div style="background:#f4f3ef;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#555;word-break:break-word">'+detail+'</div>';
-  if(err&&detail.includes('Permission denied')){
-    h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#1d4ed8;line-height:1.9">';
-    h+='<strong>Fix Firebase rules:</strong><br>';
-    h+='1. <a href="https://console.firebase.google.com" target="_blank" style="color:#2563eb">console.firebase.google.com</a><br>';
-    h+='2. Your project → Realtime Database → <strong>Rules</strong><br>';
-    h+='3. Replace with:<br>';
-    h+='<code style="display:block;background:#1e1d1b;color:#F7931A;padding:8px;border-radius:6px;margin-top:6px;font-size:11px;white-space:pre">{\n  "rules": {\n    "u": {\n      "$uid": {\n        ".read": "true",\n        ".write": "true"\n      }\n    }\n  }\n}</code>';
-    h+='4. Click <strong>Publish</strong> → tap Test below</div>';
-  }
-  if(_fbConfigured()){
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
-    h+='<button class="btn btn-primary btn-sm" onclick="doSyncTest()">Test Now</button>';
-    h+='<button class="btn btn-ghost btn-sm" onclick="doSyncPull()">⬇ Pull</button>';
-    h+='<button class="btn btn-ghost btn-sm" onclick="doSyncPush()">⬆ Push</button>';
-    h+='</div>';
-    h+='<div style="font-size:11px;color:#aaa;text-align:center">Pull overwrites this device · Push overwrites cloud</div>';
-  } else {
-    h+='<div style="font-size:12px;color:#dc2626">Log out and back in to activate sync.</div>';
-  }
-  h+='</div></div>';
-  document.body.insertAdjacentHTML('beforeend',h);
-}
-
-function closeSyncModal(){const m=document.getElementById('sync-modal');if(m)m.remove();}
-
-async function doSyncTest(){
-  closeSyncModal();_lastPushAt=0;
-  const pushed=await cloudPush();
-  if(!pushed){showSyncModal();return;}
-  // Wait briefly for Firebase write to propagate
-  await new Promise(r=>setTimeout(r,1200));
-  const pulled=await cloudPull(true);
-  showSyncModal();
-  toast(pushed&&pulled?'✓ Sync working':'Push OK but pull returned empty — check rules',pushed&&pulled?'ok':'err');
-}
-async function doSyncPull(){
-  closeSyncModal();
-  const ok=await cloudPull(true); // force=true: always apply cloud data
-  if(ok){toast('✓ Pulled from cloud','ok');navigate(currentPage);}
-  else{
-    const detail=document.getElementById('sync-btn')?.dataset.syncDetail||'';
-    toast(detail||'No data in cloud yet — push first','err');
-  }
-}
-async function doSyncPush(){
-  closeSyncModal();_lastPushAt=0;
-  const ok=await cloudPush();
-  toast(ok?'✓ Pushed to cloud':'✗ Push failed — see ☁',ok?'ok':'err');
-}
+function closeCreditsModal(){document.getElementById('credits-modal').classList.remove('open');}
 
 // ─────────────────────────────────────────────────────
-// DELETE ACCOUNT
-// Permanently removes this account's local data, its
-// entry in FM_ACCTS, and (if cloud sync configured) the
-// Firebase copy at /u/<pwHash>. Requires typing the exact
-// username to confirm — no browser confirm() dialogs.
+// SECTION: DELETE ACCOUNT
+// Permanently removes this account's local data and its
+// entry in FM_ACCTS. Requires typing the exact username
+// to confirm — no browser confirm() dialogs.
 // ─────────────────────────────────────────────────────
 function showDeleteAccountModal(){
   closeDeleteAccountModal();
   let h='<div id="delete-acct-modal" onclick="if(event.target.id===\'delete-acct-modal\')closeDeleteAccountModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:16px">';
   h+='<div style="background:#fff;border-radius:14px;padding:24px 26px;width:420px;max-width:100%;max-height:90vh;overflow-y:auto">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:16px;font-weight:700;color:#dc2626">&#x1F5D1; Delete Account</div><button onclick="closeDeleteAccountModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#aaa">&#x2715;</button></div>';
-  h+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#991b1b;line-height:1.6">This permanently deletes <strong>'+currentUsername+'</strong> — all transactions, BTC entries, net worth, goals, and settings. This device\'s local copy'+(_fbConfigured()?' and the cloud backup':'')+' will both be erased. This cannot be undone.</div>';
+  h+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#991b1b;line-height:1.6">This permanently deletes <strong>'+currentUsername+'</strong> — all transactions, investments, net worth, goals, and settings on this device. This cannot be undone.</div>';
   h+='<label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Type your username (<strong>'+currentUsername+'</strong>) to confirm</label>';
   h+='<input type="text" id="del-acct-confirm-input" placeholder="'+currentUsername+'" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;margin-bottom:14px" oninput="document.getElementById(\'del-acct-confirm-btn\').disabled=(this.value!==currentUsername)">';
   h+='<div style="display:flex;gap:8px"><button class="btn btn-ghost" style="flex:1" onclick="closeDeleteAccountModal()">Cancel</button><button id="del-acct-confirm-btn" class="btn" style="flex:1;background:#dc2626;color:#fff" disabled onclick="confirmDeleteAccount()">Delete Permanently</button></div>';
@@ -1563,26 +1516,17 @@ async function confirmDeleteAccount(){
   const statusEl=document.getElementById('del-acct-status');
   const btn=document.getElementById('del-acct-confirm-btn');if(btn)btn.disabled=true;
   if(statusEl){statusEl.textContent='Deleting…';statusEl.style.color='#888';}
-  const dataKeyToRemove=currentDataKey,pwHashToRemove=currentPwHash;
+  const dataKeyToRemove=currentDataKey;
   try{
-    // Clear cloud copy first (best-effort — local deletion proceeds regardless)
-    if(_fbConfigured()){
-      const url=_fbUrl();
-      if(url)await _fetchTimeout(url,{method:'DELETE'},8000).catch(()=>{});
-    }
-    // Remove account entry from the accounts index
     const accts=getAccounts();
     Object.keys(accts).forEach(uHash=>{if(accts[uHash].dataKey===dataKeyToRemove)delete accts[uHash];});
     saveAccounts(accts);
-    // Remove this account's local data + recovery hash + remembered session
     if(dataKeyToRemove)localStorage.removeItem(dataKeyToRemove);
-    if(dataKeyToRemove)localStorage.removeItem('FM_PH_'+dataKeyToRemove);
     sessionStorage.removeItem('fm_sess');
     localStorage.removeItem('fm_remember');
-    if(priceInterval){clearInterval(priceInterval);priceInterval=null;}
     if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
     closeDeleteAccountModal();
-    currentDataKey=null;currentUsername='';currentPwHash='';SK='fm_v3';DB=initDB();
+    currentDataKey=null;currentUsername='';SK='fm_v3';DB=initDB();
     document.getElementById('app').style.display='none';
     document.getElementById('setup-screen').style.display='none';
     document.getElementById('login-screen').style.display='flex';
@@ -1596,32 +1540,27 @@ async function confirmDeleteAccount(){
 }
 
 // ─────────────────────────────────────────────────────
-// APP STARTUP
+// SECTION: APP STARTUP
 // ─────────────────────────────────────────────────────
-async function startApp(){
-  startPriceRefresh();navigate('dashboard');
-  if(_fbConfigured()){
-    updateSyncBadge('busy');
-    const pulled=await cloudPull();
-    if(pulled)navigate(currentPage||'dashboard');
-  } else {
-    updateSyncBadge('off');
-  }
+function startApp(){
+  navigate('dashboard');
 }
-// Auto-login from session
-(async function(){
+// Auto-login from a saved session (localStorage 'fm_remember' or
+// sessionStorage 'fm_sess'). No network calls happen here — this
+// is a pure client-side session restore.
+(function(){
   const s=sessionStorage.getItem('fm_sess')||localStorage.getItem('fm_remember');
   if(!s)return;
   try{
     const d=JSON.parse(atob(s));if(!d.dk)return;
-    currentDataKey=d.dk;currentUsername=d.un||'user';currentPwHash=d.ph||localStorage.getItem('FM_PH_'+d.dk)||'';SK=currentDataKey;
+    currentDataKey=d.dk;currentUsername=d.un||'user';SK=currentDataKey;
     sessionStorage.setItem('fm_sess',s);
     DB=initDB();
     document.getElementById('user-name-display').textContent=currentUsername;
-    const hasData2=DB.transactions.length>0||DB.btcEntries.length>0||(DB.assets&&DB.assets.length>0)||DB.portfolio.length>0;
+    const hasData2=DB.transactions.length>0||(DB.customInvestments&&DB.customInvestments.length>0)||(DB.assets&&DB.assets.length>0)||DB.portfolio.length>0;
     if(!DB.fireSettings||!DB.fireSettings.setupDone){
       if(!hasData2){document.getElementById('login-screen').style.display='none';showSetup();}
-      else{if(!DB.fireSettings)DB.fireSettings={monthlyExpense:16000,inflationRate:10,currentAge:23,retireAge:40,setupDone:true};else DB.fireSettings.setupDone=true;save();document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';startApp();}
+      else{if(!DB.fireSettings)DB.fireSettings={monthlyExpense:20000,inflationRate:10,currentAge:25,retireAge:65,setupDone:true};else DB.fireSettings.setupDone=true;save();document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';startApp();}
     }
     else{document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='flex';startApp();}
   }catch(e){}
@@ -1629,3 +1568,4 @@ async function startApp(){
 </script>
 </body>
 </html>
+
